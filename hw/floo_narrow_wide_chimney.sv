@@ -821,7 +821,7 @@ module floo_narrow_wide_chimney
   assign floo_rsp_arb_in[NarrowR].narrow_r    = floo_narrow_r;
   assign floo_rsp_arb_in[WideB].wide_b        = floo_wide_b;
   assign floo_wide_arb_in[WideAw]             = '0;
-  assign floo_wide_arb_in[WideW]              = (wide_aw_w_sel_q == SelAw)?
+  assign floo_wide_arb_in[WideW]              = (wide_aw_w_sel_q == SelAw)? //what is the user for W?
                                                 floo_wide_aw : floo_wide_w;
   assign floo_wide_arb_in[WideR].wide_r       = floo_wide_r;
 

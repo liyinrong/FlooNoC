@@ -105,6 +105,7 @@ class Network(BaseModel):  # pylint: disable=too-many-public-methods
 
         for rt_desc in self.routers:
             # handle single router
+            # print (rt_desc.array, rt_desc.tree)
             match (rt_desc.array, rt_desc.tree):
                 # Single router case
                 case (None, None):
@@ -251,6 +252,7 @@ class Network(BaseModel):  # pylint: disable=too-many-public-methods
 
             srcs = [get_ni_of_ep(src) for src in srcs]
             dsts = [get_ni_of_ep(dst) for dst in dsts]
+            # print(len(srcs), len(dsts))
 
             # Add edges between the nodes
             match (len(srcs), len(dsts), con.allow_multi):
@@ -329,8 +331,10 @@ class Network(BaseModel):  # pylint: disable=too-many-public-methods
                     rt_id = self.graph.get_node_id(rt_name)
                     incoming, outgoing = {}, {}
                     for edge in self.graph.get_edges_to(rt_name):
+                        print ("edge:", edge)
                         neighbor_id = self.graph.get_node_id(edge.source)
                         incoming_dir = str(Coord.get_dir(rt_id, neighbor_id))
+                        print (rt_id, neighbor_id)
                         if incoming_dir in incoming:
                             raise ValueError("Incoming direction is already defined")
                         incoming[incoming_dir] = edge
