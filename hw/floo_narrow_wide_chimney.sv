@@ -54,7 +54,9 @@ module floo_narrow_wide_chimney
   /// Cut timing paths of incoming responses from the NoC
   parameter bit CutRsp                           = 1'b1,
   /// Type for implementation inputs and outputs
-  parameter type sram_cfg_t                      = logic
+  parameter type sram_cfg_t                      = logic,
+  /// Number of routes in the routing table
+  parameter int unsigned NumRoutes               = 0
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -70,7 +72,9 @@ module floo_narrow_wide_chimney
   output axi_wide_out_req_t axi_wide_out_req_o,
   input  axi_wide_out_rsp_t axi_wide_out_rsp_i,
   /// Coordinates/ID of the current tile
-  input  id_t       id_i,
+  input  id_t id_i,
+  /// Routing table for the current tile
+  input  route_t [NumRoutes-1:0] route_table_i,
   /// Output to NoC
   output floo_req_t   floo_req_o,
   output floo_rsp_t   floo_rsp_o,
@@ -172,30 +176,18 @@ module floo_narrow_wide_chimney
   } wide_id_out_buf_t;
 
   // Routing
-  id_t [NumAxiChannels-1:0] dst_id;
+  dst_t [NumAxiChannels-1:0] dst_id;
+  dst_t narrow_aw_id_q, wide_aw_id_q;
+  route_t [NumAxiChannels-1:0] route_out;
+  id_t [NumAxiChannels-1:0] id_out;
 
-  // int mcast_num_dst_narrow, mcast_num_dst_wide, mcast_num_dst;
-  // int dst_cnt = 0;
-  // logic [3:0] mcast_mask; // need a parameter.
-  // id_t [mcast_num_dst-1:0] mcast_dst_id;
+
   id_t [3:0] id_lut = '{
     '{x: 0, y: 1},
     '{x: 1, y: 0}, 
     '{x: 1, y: 2}, 
     '{x: 2, y: 1}
   };
-  // always_comb begin
-  //   mcast_num_dst_narrow = $countones(axi_narrow_aw_queue.user);
-  //   mcast_num_dst_wide = $countones(axi_wide_aw_queue.user);
-  //   mcast_num_dst = (!mcast_flag) ? 1 : (mcast_num_dst_narrow > mcast_num_dst_wide) ? mcast_num_dst_narrow : mcast_num_dst_wide;
-  //   mcast_mask = (mcast_num_dst_narrow > mcast_num_dst_wide) ? axi_narrow_aw_queue.user : axi_wide_aw_queue.user;
-  //   if (mcast_flag) begin
-  //     for (genvar d = 0; d < 4; d++) begin
-  //       mcast_dst_id[dst_cnt] = id_lut[d];
-  //       dst_cnt = dst_cnt + 1; 
-  //     end
-  //   end
-  // end
   
 
   narrow_id_out_buf_t narrow_aw_out_data_in, narrow_aw_out_data_out;
@@ -453,7 +445,7 @@ module floo_narrow_wide_chimney
     .ax_ready_o     ( narrow_aw_rob_ready_out ),
     .ax_len_i       ( axi_narrow_aw_queue.len ),
     .ax_id_i        ( axi_narrow_aw_queue.id  ),
-    .ax_dest_i      ( dst_id[NarrowAW]        ),
+    .ax_dest_i      ( id_out[NarrowAw]        ),
     .ax_valid_o     ( narrow_aw_rob_valid_out ),
     .ax_ready_i     ( narrow_aw_rob_ready_in  ),
     .ax_rob_req_o   ( narrow_aw_rob_req_out   ),
@@ -497,7 +489,7 @@ module floo_narrow_wide_chimney
     .ax_ready_o     ( axi_wide_aw_queue_ready_in  ),
     .ax_len_i       ( axi_wide_aw_queue.len       ),
     .ax_id_i        ( axi_wide_aw_queue.id        ),
-    .ax_dest_i      ( dst_id[WideAw]              ),
+    .ax_dest_i      ( id_out[WideAw]              ),
     .ax_valid_o     ( wide_aw_rob_valid_out       ),
     .ax_ready_i     ( wide_aw_rob_ready_in        ),
     .ax_rob_req_o   ( wide_aw_rob_req_out         ),
@@ -555,7 +547,7 @@ module floo_narrow_wide_chimney
     .ax_ready_o     ( axi_narrow_ar_queue_ready_in  ),
     .ax_len_i       ( axi_narrow_ar_queue.len       ),
     .ax_id_i        ( axi_narrow_ar_queue.id        ),
-    .ax_dest_i      ( dst_id[NarrowAr]              ),
+    .ax_dest_i      ( id_out[NarrowAr]              ),
     .ax_valid_o     ( narrow_ar_rob_valid_out       ),
     .ax_ready_i     ( narrow_ar_rob_ready_in        ),
     .ax_rob_req_o   ( narrow_ar_rob_req_out         ),
@@ -599,7 +591,7 @@ module floo_narrow_wide_chimney
     .ax_ready_o     ( axi_wide_ar_queue_ready_in  ),
     .ax_len_i       ( axi_wide_ar_queue.len       ),
     .ax_id_i        ( axi_wide_ar_queue.id        ),
-    .ax_dest_i      ( dst_id[WideAr]              ),
+    .ax_dest_i      ( id_out[WideAr]              ),
     .ax_valid_o     ( wide_ar_rob_valid_out       ),
     .ax_ready_i     ( wide_ar_rob_ready_in        ),
     .ax_rob_req_o   ( wide_ar_rob_req_out         ),
@@ -619,23 +611,7 @@ module floo_narrow_wide_chimney
   //   ROUTING   //
   /////////////////
 
-  typedef enum logic [2:0] {
-    NarrowAwReq,
-    NarrowArReq,
-    WideAwReq,
-    WideArReq,
-    NumAddrDecoders
-  } axi_req_ch_e;
   typedef axi_narrow_in_addr_t addr_t;
-
-  id_t narrow_aw_id_q, wide_aw_id_q;
-
-  addr_t [NumAddrDecoders-1:0] addr_to_decode;
-  id_t [NumAddrDecoders-1:0] decoded_id;
-  assign addr_to_decode[NarrowAwReq] = axi_narrow_aw_queue.addr;
-  assign addr_to_decode[NarrowArReq] = axi_narrow_ar_queue.addr;
-  assign addr_to_decode[WideAwReq] = axi_wide_aw_queue.addr;
-  assign addr_to_decode[WideArReq] = axi_wide_ar_queue.addr;
 
   mask_id_t narrow_dst_mask_id, wide_dst_mask_id, narrow_dst_mask_id_q, wide_dst_mask_id_q;
   logic narrow_mcast_flag, narrow_mcast_flag_q, wide_mcast_flag, wide_mcast_flag_q;
@@ -656,28 +632,65 @@ module floo_narrow_wide_chimney
     .XYAddrOffsetX  ( XYAddrOffsetX   ),
     .XYAddrOffsetY  ( XYAddrOffsetY   ),
     .IdAddrOffset   ( IdAddrOffset    ),
-    .NumRules       ( AddrMapNumRules ),
-    .AddrMap        ( AddrMap         ),
+    .NumAddrRules   ( SamNumRules     ),
+    .NumRoutes      ( NumRoutes       ),
     .id_t           ( id_t            ),
-    .id_rule_t      ( addr_map_rule_t ),
-    .addr_t         ( addr_t          )
-  ) i_floo_narrow_route_comp [NumAddrDecoders-1:0] (
+    .addr_t         ( addr_t          ),
+    .addr_rule_t    ( sam_rule_t      ),
+    .route_t        ( route_t         )
+  ) i_floo_req_route_comp [3:0] (
     .clk_i,
     .rst_ni,
-    .addr_i     ( addr_to_decode  ),
-    .id_o       ( decoded_id      )
+    .route_table_i,
+    .addr_map_i ( Sam ),
+    .id_i       ( '0  ),
+    .addr_i ({
+      axi_narrow_aw_queue.addr, axi_narrow_ar_queue.addr,
+      axi_wide_aw_queue.addr, axi_wide_ar_queue.addr
+    }),
+    .route_o  ({route_out[NarrowAw], route_out[NarrowAr], route_out[WideAw], route_out[WideAr]} ),
+    .id_o     ({id_out[NarrowAw], id_out[NarrowAr],id_out[WideAw], id_out[WideAr]}              )
   );
 
-  assign dst_id[NarrowAw] = decoded_id[NarrowAwReq];
-  assign dst_id[NarrowW]  = narrow_aw_id_q;
-  assign dst_id[NarrowAr] = decoded_id[NarrowArReq];
-  assign dst_id[NarrowB]  = narrow_aw_out_data_out.src_id;
-  assign dst_id[NarrowR]  = narrow_ar_out_data_out.src_id;
-  assign dst_id[WideAw] = decoded_id[WideAwReq];
-  assign dst_id[WideW]  = wide_aw_id_q;
-  assign dst_id[WideAr] = decoded_id[WideArReq];
-  assign dst_id[WideB]  = wide_aw_out_data_out.src_id;
-  assign dst_id[WideR]  = wide_ar_out_data_out.src_id;
+  if (RouteAlgo == SourceRouting) begin : gen_route_field
+    floo_route_comp #(
+      .RouteAlgo    ( RouteAlgo   ),
+      .UseIdTable   ( 1'b0        ),
+      .NumAddrRules ( SamNumRules ),
+      .NumRoutes    ( NumRoutes   ),
+      .id_t         ( id_t        ),
+      .addr_t       ( addr_t      ),
+      .addr_rule_t  ( sam_rule_t  ),
+      .route_t      ( route_t     )
+      ) i_floo_rsp_route_comp [3:0] (
+      .clk_i,
+      .rst_ni,
+      .route_table_i,
+      .addr_i     ( '0 ),
+      .addr_map_i ( '0 ),
+      .id_i ({
+        narrow_aw_out_data_out.src_id, narrow_ar_out_data_out.src_id,
+        wide_aw_out_data_out.src_id, wide_ar_out_data_out.src_id
+      }),
+      .route_o  ({route_out[NarrowB], route_out[NarrowR], route_out[WideB], route_out[WideR]} ),
+      .id_o     ({id_out[NarrowB], id_out[NarrowR], id_out[WideB], id_out[WideR]}             )
+    );
+    assign route_out[NarrowW] = narrow_aw_id_q;
+    assign route_out[WideW]   = wide_aw_id_q;
+    assign dst_id = route_out;
+  end else begin : gen_dst_field
+    assign dst_id[NarrowAw] = id_out[NarrowAw];
+    assign dst_id[NarrowAr] = id_out[NarrowAr];
+    assign dst_id[WideAw]   = id_out[WideAw];
+    assign dst_id[WideAr]   = id_out[WideAr];
+    assign dst_id[NarrowB]  = narrow_aw_out_data_out.src_id;
+    assign dst_id[NarrowR]  = narrow_ar_out_data_out.src_id;
+    assign dst_id[WideB]    = wide_aw_out_data_out.src_id;
+    assign dst_id[WideR]    = wide_ar_out_data_out.src_id;
+    assign dst_id[NarrowW]  = narrow_aw_id_q;
+    assign dst_id[WideW]    = wide_aw_id_q;
+  end
+
   `FFL(narrow_aw_id_q, dst_id[NarrowAw], axi_narrow_aw_queue_valid_out &&
                                          axi_narrow_aw_queue_ready_in, '0)
   `FFL(wide_aw_id_q, dst_id[WideAw], axi_wide_aw_queue_valid_out &&
@@ -739,8 +752,8 @@ module floo_narrow_wide_chimney
     floo_narrow_b.hdr.mcast_flag = 0;
     floo_narrow_b.hdr.rob_req = narrow_aw_out_data_out.rob_req;
     floo_narrow_b.hdr.rob_idx = rob_idx_t'(narrow_aw_out_data_out.rob_idx);
-    floo_narrow_b.hdr.dst_id  = narrow_aw_out_data_out.src_id;
     floo_narrow_b.hdr.dst_mask_id = '0;
+    floo_narrow_b.hdr.dst_id  = dst_id[NarrowB];
     floo_narrow_b.hdr.src_id  = id_i;
     floo_narrow_b.hdr.last    = 1'b1;
     floo_narrow_b.hdr.axi_ch  = NarrowB;
@@ -754,8 +767,8 @@ module floo_narrow_wide_chimney
     floo_narrow_r.hdr.mcast_flag = 0;
     floo_narrow_r.hdr.rob_req = narrow_ar_out_data_out.rob_req;
     floo_narrow_r.hdr.rob_idx = rob_idx_t'(narrow_ar_out_data_out.rob_idx);
-    floo_narrow_r.hdr.dst_id  = narrow_ar_out_data_out.src_id;
     floo_narrow_r.hdr.dst_mask_id = '0;
+    floo_narrow_r.hdr.dst_id  = dst_id[NarrowR];
     floo_narrow_r.hdr.src_id  = id_i;
     floo_narrow_r.hdr.axi_ch  = NarrowR;
     floo_narrow_r.hdr.last    = 1'b1; // There is no reason to do wormhole routing for R bursts
@@ -808,8 +821,8 @@ module floo_narrow_wide_chimney
     floo_wide_b.hdr.mcast_flag = 0;
     floo_wide_b.hdr.rob_req = wide_aw_out_data_out.rob_req;
     floo_wide_b.hdr.rob_idx = rob_idx_t'(wide_aw_out_data_out.rob_idx);
-    floo_wide_b.hdr.dst_id  = wide_aw_out_data_out.src_id;
     floo_wide_b.hdr.dst_mask_id = '0;
+    floo_wide_b.hdr.dst_id  = dst_id[WideB];
     floo_wide_b.hdr.src_id  = id_i;
     floo_wide_b.hdr.last    = 1'b1;
     floo_wide_b.hdr.axi_ch  = WideB;
@@ -822,8 +835,8 @@ module floo_narrow_wide_chimney
     floo_wide_r.hdr.mcast_flag = 0;
     floo_wide_r.hdr.rob_req = wide_ar_out_data_out.rob_req;
     floo_wide_r.hdr.rob_idx = rob_idx_t'(wide_ar_out_data_out.rob_idx);
-    floo_wide_r.hdr.dst_id  = wide_ar_out_data_out.src_id;
     floo_wide_r.hdr.dst_mask_id = '0;
+    floo_wide_r.hdr.dst_id  = dst_id[WideR];
     floo_wide_r.hdr.src_id  = id_i;
     floo_wide_r.hdr.axi_ch  = WideR;
     floo_wide_r.hdr.last    = 1'b1; // There is no reason to do wormhole routing for R bursts

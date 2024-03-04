@@ -14,7 +14,7 @@ package floo_axi_pkg;
   //   AXI Parameters   //
   ////////////////////////
 
-  typedef enum {
+  typedef enum logic [2:0] {
     AxiAw = 0,
     AxiW = 1,
     AxiAr = 2,
@@ -76,14 +76,16 @@ package floo_axi_pkg;
     y_bits_t y;
   } id_t;
 
+  typedef logic route_t;
+  typedef id_t dst_t;
 
 
   typedef struct packed {
     logic mcast_flag;
     logic rob_req;
     rob_idx_t rob_idx;
-    id_t dst_id;
     id_t dst_mask_id;
+    dst_t dst_id;
     id_t src_id;
     logic last;
     logic atop;
@@ -96,9 +98,9 @@ package floo_axi_pkg;
   //   Address Map   //
   /////////////////////
 
-  typedef logic addr_map_rule_t;
-  localparam int unsigned AddrMapNumRules = 0;
-  localparam addr_map_rule_t AddrMap = '0;
+  localparam int unsigned SamNumRules = 1;
+  typedef logic sam_rule_t;
+  localparam sam_rule_t Sam = '0;
 
   ////////////////////////
   //   Flits Typedefs   //

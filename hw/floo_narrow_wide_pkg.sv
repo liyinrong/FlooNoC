@@ -14,7 +14,7 @@ package floo_narrow_wide_pkg;
   //   AXI Parameters   //
   ////////////////////////
 
-  typedef enum {
+  typedef enum logic [3:0] {
     NarrowAw = 0,
     NarrowW = 1,
     NarrowAr = 2,
@@ -99,10 +99,10 @@ package floo_narrow_wide_pkg;
 
   localparam route_algo_e RouteAlgo = XYRouting;
   localparam bit UseIdTable = 1'b1;
-  localparam int unsigned NumXBits = 1;
-  localparam int unsigned NumYBits = 1;
+  localparam int unsigned NumXBits = 2;
+  localparam int unsigned NumYBits = 2;
   localparam int unsigned XYAddrOffsetX = 29;
-  localparam int unsigned XYAddrOffsetY = 30;
+  localparam int unsigned XYAddrOffsetY = 31;
   localparam int unsigned IdAddrOffset = 0;
 
 
@@ -114,14 +114,16 @@ package floo_narrow_wide_pkg;
     y_bits_t y;
   } id_t;
 
-  typedef logic [3:0] mask_id_t;
+  typedef logic route_t;
+  typedef id_t dst_t;
+  typedef logic [3:0] mask_id_t
 
   typedef struct packed {
     logic mcast_flag;
     logic rob_req;
     rob_idx_t rob_idx;
-    id_t dst_id;
     mask_id_t dst_mask_id;
+    dst_t dst_id;
     id_t src_id;
     logic last;
     logic atop;
@@ -134,19 +136,36 @@ package floo_narrow_wide_pkg;
   //   Address Map   //
   /////////////////////
 
+  localparam int unsigned SamNumRules = 4;
+
   typedef struct packed {
     id_t idx;
     logic [47:0] start_addr;
     logic [47:0] end_addr;
-  } addr_map_rule_t;
+  } sam_rule_t;
 
-  localparam int unsigned AddrMapNumRules = 4;
+  localparam sam_rule_t [SamNumRules-1:0] Sam = '{
+      '{
+          idx: '{x: -1, y: 0},
+          start_addr: 48'h000010000000,
+          end_addr: 48'h000010003fff
+      },  // cluster1_ni
+      '{
+          idx: '{x: 0, y: -1},
+          start_addr: 48'h000010004000,
+          end_addr: 48'h000010007fff
+      },  // cluster2_ni
+      '{
+          idx: '{x: -1, y: -2},
+          start_addr: 48'h000010008000,
+          end_addr: 48'h00001000bfff
+      },  // cluster3_ni
+      '{
+          idx: '{x: -2, y: -1},
+          start_addr: 48'h00001000c000,
+          end_addr: 48'h000010010000
+      }  // cluster4_ni
 
-  localparam addr_map_rule_t [3:0] AddrMap = '{
-      '{idx: '{x: 1, y: 2}, start_addr: 48'h000010000000, end_addr: 48'h000010003fff},
-      '{idx: '{x: 2, y: 1}, start_addr: 48'h000010004000, end_addr: 48'h000010007fff},
-      '{idx: '{x: 1, y: 0}, start_addr: 48'h000010008000, end_addr: 48'h00001000bfff},
-      '{idx: '{x: 0, y: 1}, start_addr: 48'h00001000c000, end_addr: 48'h000010010000}
   };
 
 
