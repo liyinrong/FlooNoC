@@ -174,6 +174,30 @@ module floo_narrow_wide_chimney
   // Routing
   id_t [NumAxiChannels-1:0] dst_id;
 
+  // int mcast_num_dst_narrow, mcast_num_dst_wide, mcast_num_dst;
+  // int dst_cnt = 0;
+  // logic [3:0] mcast_mask; // need a parameter.
+  // id_t [mcast_num_dst-1:0] mcast_dst_id;
+  id_t [3:0] id_lut = '{
+    '{x: 0, y: 1},
+    '{x: 1, y: 0}, 
+    '{x: 1, y: 2}, 
+    '{x: 2, y: 1}
+  };
+  // always_comb begin
+  //   mcast_num_dst_narrow = $countones(axi_narrow_aw_queue.user);
+  //   mcast_num_dst_wide = $countones(axi_wide_aw_queue.user);
+  //   mcast_num_dst = (!mcast_flag) ? 1 : (mcast_num_dst_narrow > mcast_num_dst_wide) ? mcast_num_dst_narrow : mcast_num_dst_wide;
+  //   mcast_mask = (mcast_num_dst_narrow > mcast_num_dst_wide) ? axi_narrow_aw_queue.user : axi_wide_aw_queue.user;
+  //   if (mcast_flag) begin
+  //     for (genvar d = 0; d < 4; d++) begin
+  //       mcast_dst_id[dst_cnt] = id_lut[d];
+  //       dst_cnt = dst_cnt + 1; 
+  //     end
+  //   end
+  // end
+  
+
   narrow_id_out_buf_t narrow_aw_out_data_in, narrow_aw_out_data_out;
   narrow_id_out_buf_t narrow_ar_out_data_in, narrow_ar_out_data_out;
   wide_id_out_buf_t wide_aw_out_data_in, wide_aw_out_data_out;
@@ -362,13 +386,13 @@ module floo_narrow_wide_chimney
   // AW/B RoB
   axi_narrow_in_b_chan_t axi_narrow_b_rob_out, axi_narrow_b_rob_in;
   logic  narrow_aw_rob_req_out;
-  rob_idx_t narrow_aw_rob_idx_out;
+  rob_idx_t  narrow_aw_rob_idx_out;
   logic narrow_aw_rob_valid_out, narrow_aw_rob_ready_in;
   logic narrow_aw_rob_valid_in, narrow_aw_rob_ready_out;
   logic narrow_b_rob_valid_in, narrow_b_rob_ready_out;
   logic narrow_b_rob_valid_out, narrow_b_rob_ready_in;
   axi_wide_in_b_chan_t axi_wide_b_rob_out, axi_wide_b_rob_in;
-  logic  wide_aw_rob_req_out;
+  logic wide_aw_rob_req_out;
   rob_idx_t wide_aw_rob_idx_out;
   logic wide_aw_rob_valid_out, wide_aw_rob_ready_in;
   logic wide_b_rob_valid_in, wide_b_rob_ready_out;
@@ -408,6 +432,7 @@ module floo_narrow_wide_chimney
                              (axi_narrow_aw_queue.atop != axi_pkg::ATOP_NONE)))
   end
 
+  // for (genvar d = 0; d < mcast_num_dst; d++) begin : rob_mcast
   floo_rob_wrapper #(
     .RoBType            ( NarrowRoBType           ),
     .ReorderBufferSize  ( NarrowReorderBufferSize ),
@@ -428,7 +453,7 @@ module floo_narrow_wide_chimney
     .ax_ready_o     ( narrow_aw_rob_ready_out ),
     .ax_len_i       ( axi_narrow_aw_queue.len ),
     .ax_id_i        ( axi_narrow_aw_queue.id  ),
-    .ax_dest_i      ( dst_id[NarrowAw]        ),
+    .ax_dest_i      ( dst_id[NarrowAW]        ),
     .ax_valid_o     ( narrow_aw_rob_valid_out ),
     .ax_ready_i     ( narrow_aw_rob_ready_in  ),
     .ax_rob_req_o   ( narrow_aw_rob_req_out   ),
@@ -442,7 +467,8 @@ module floo_narrow_wide_chimney
     .rsp_valid_o    ( narrow_b_rob_valid_out  ),
     .rsp_ready_i    ( narrow_b_rob_ready_in   ),
     .rsp_o          ( axi_narrow_b_rob_out    )
-  );
+  );      
+  // end
 
   logic wide_b_rob_rob_req;
   logic wide_b_rob_last;
@@ -611,6 +637,19 @@ module floo_narrow_wide_chimney
   assign addr_to_decode[WideAwReq] = axi_wide_aw_queue.addr;
   assign addr_to_decode[WideArReq] = axi_wide_ar_queue.addr;
 
+  mask_id_t narrow_dst_mask_id, wide_dst_mask_id, narrow_dst_mask_id_q, wide_dst_mask_id_q;
+  logic narrow_mcast_flag, narrow_mcast_flag_q, wide_mcast_flag, wide_mcast_flag_q;
+  logic narrow_last_q, wide_last_q;
+  logic narrow_flit_end_flag, wide_flit_end_flag;
+
+  assign narrow_mcast_flag = axi_narrow_aw_queue.user != '0;
+  assign wide_mcast_flag = axi_wide_aw_queue.user != '0;
+  // assign mcast_flag = // need to monitor w.last.
+  assign narrow_dst_mask_id = axi_narrow_aw_queue.user;
+  assign wide_dst_mask_id = axi_wide_aw_queue.user;
+  assign narrow_flit_end_flag = !axi_narrow_req_in.w.last && narrow_last_q;
+  assign wide_flit_end_flag = !axi_wide_req_in.w.last && wide_last_q;
+
   floo_route_comp #(
     .RouteAlgo      ( RouteAlgo       ),
     .UseIdTable     ( UseIdTable      ),
@@ -643,6 +682,13 @@ module floo_narrow_wide_chimney
                                          axi_narrow_aw_queue_ready_in, '0)
   `FFL(wide_aw_id_q, dst_id[WideAw], axi_wide_aw_queue_valid_out &&
                                      axi_wide_aw_queue_ready_in, '0)
+  `FFL(narrow_mcast_flag_q, narrow_mcast_flag, narrow_flit_end_flag, '0)
+  `FFL(wide_mcast_flag_q, wide_mcast_flag, wide_flit_end_flag, '0)
+  `FF(narrow_last_q, axi_narrow_req_in.w.last, 1'b0)
+  `FF(wide_last_q, axi_wide_req_in.w.last, 1'b0)
+  `FFL(narrow_dst_mask_id_q, narrow_dst_mask_id, narrow_flit_end_flag, '0)
+  `FFL(wide_dst_mask_id_q, wide_dst_mask_id, wide_flit_end_flag, '0)
+
 
   ///////////////////
   // FLIT PACKING  //
@@ -650,9 +696,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_narrow_aw              = '0;
+    floo_narrow_aw.hdr.mcast_flag = narrow_mcast_flag_q;
     floo_narrow_aw.hdr.rob_req  = narrow_aw_rob_req_out;
     floo_narrow_aw.hdr.rob_idx  = rob_idx_t'(narrow_aw_rob_idx_out);
     floo_narrow_aw.hdr.dst_id   = dst_id[NarrowAw];
+    floo_narrow_aw.hdr.dst_mask_id = narrow_dst_mask_id_q;
     floo_narrow_aw.hdr.src_id   = id_i;
     floo_narrow_aw.hdr.last     = 1'b0;  // AW and W need to be sent together
     floo_narrow_aw.hdr.axi_ch   = NarrowAw;
@@ -662,9 +710,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_narrow_w               = '0;
+    floo_narrow_w.hdr.mcast_flag = narrow_mcast_flag_q;
     floo_narrow_w.hdr.rob_req   = narrow_aw_rob_req_out;
     floo_narrow_w.hdr.rob_idx   = rob_idx_t'(narrow_aw_rob_idx_out);
     floo_narrow_w.hdr.dst_id    = dst_id[NarrowW];
+    floo_narrow_w.hdr.dst_mask_id = narrow_dst_mask_id_q;
     floo_narrow_w.hdr.src_id    = id_i;
     floo_narrow_w.hdr.last      = axi_narrow_req_in.w.last;
     floo_narrow_w.hdr.axi_ch    = NarrowW;
@@ -673,9 +723,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_narrow_ar              = '0;
+    floo_narrow_ar.hdr.mcast_flag = 0;
     floo_narrow_ar.hdr.rob_req  = narrow_ar_rob_req_out;
     floo_narrow_ar.hdr.rob_idx  = rob_idx_t'(narrow_ar_rob_idx_out);
     floo_narrow_ar.hdr.dst_id   = dst_id[NarrowAr];
+    floo_narrow_ar.hdr.dst_mask_id = '0;
     floo_narrow_ar.hdr.src_id   = id_i;
     floo_narrow_ar.hdr.last     = 1'b1;
     floo_narrow_ar.hdr.axi_ch   = NarrowAr;
@@ -684,9 +736,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_narrow_b             = '0;
+    floo_narrow_b.hdr.mcast_flag = 0;
     floo_narrow_b.hdr.rob_req = narrow_aw_out_data_out.rob_req;
     floo_narrow_b.hdr.rob_idx = rob_idx_t'(narrow_aw_out_data_out.rob_idx);
     floo_narrow_b.hdr.dst_id  = narrow_aw_out_data_out.src_id;
+    floo_narrow_b.hdr.dst_mask_id = '0;
     floo_narrow_b.hdr.src_id  = id_i;
     floo_narrow_b.hdr.last    = 1'b1;
     floo_narrow_b.hdr.axi_ch  = NarrowB;
@@ -697,9 +751,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_narrow_r             = '0;
+    floo_narrow_r.hdr.mcast_flag = 0;
     floo_narrow_r.hdr.rob_req = narrow_ar_out_data_out.rob_req;
     floo_narrow_r.hdr.rob_idx = rob_idx_t'(narrow_ar_out_data_out.rob_idx);
     floo_narrow_r.hdr.dst_id  = narrow_ar_out_data_out.src_id;
+    floo_narrow_r.hdr.dst_mask_id = '0;
     floo_narrow_r.hdr.src_id  = id_i;
     floo_narrow_r.hdr.axi_ch  = NarrowR;
     floo_narrow_r.hdr.last    = 1'b1; // There is no reason to do wormhole routing for R bursts
@@ -710,9 +766,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_wide_aw              = '0;
+    floo_wide_aw.hdr.mcast_flag = wide_mcast_flag_q;
     floo_wide_aw.hdr.rob_req  = wide_aw_rob_req_out;
     floo_wide_aw.hdr.rob_idx  = rob_idx_t'(wide_aw_rob_idx_out);
     floo_wide_aw.hdr.dst_id   = dst_id[WideAw];
+    floo_wide_aw.hdr.dst_mask_id = wide_dst_mask_id_q;
     floo_wide_aw.hdr.src_id   = id_i;
     floo_wide_aw.hdr.last     = 1'b0;  // AW and W need to be sent together
     floo_wide_aw.hdr.axi_ch   = WideAw;
@@ -721,9 +779,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_wide_w             = '0;
+    floo_wide_w.hdr.mcast_flag = wide_mcast_flag_q;
     floo_wide_w.hdr.rob_req = wide_aw_rob_req_out;
     floo_wide_w.hdr.rob_idx = rob_idx_t'(wide_aw_rob_idx_out);
     floo_wide_w.hdr.dst_id  = dst_id[WideW];
+    floo_wide_w.hdr.dst_mask_id = wide_dst_mask_id_q;
     floo_wide_w.hdr.src_id  = id_i;
     floo_wide_w.hdr.last    = axi_wide_req_in.w.last;
     floo_wide_w.hdr.axi_ch  = WideW;
@@ -732,9 +792,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_wide_ar              = '0;
+    floo_wide_ar.hdr.mcast_flag = 0;
     floo_wide_ar.hdr.rob_req  = wide_ar_rob_req_out;
     floo_wide_ar.hdr.rob_idx  = rob_idx_t'(wide_ar_rob_idx_out);
     floo_wide_ar.hdr.dst_id   = dst_id[WideAr];
+    floo_wide_ar.hdr.dst_mask_id = '0;
     floo_wide_ar.hdr.src_id   = id_i;
     floo_wide_ar.hdr.last     = 1'b1;
     floo_wide_ar.hdr.axi_ch   = WideAr;
@@ -743,9 +805,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_wide_b             = '0;
+    floo_wide_b.hdr.mcast_flag = 0;
     floo_wide_b.hdr.rob_req = wide_aw_out_data_out.rob_req;
     floo_wide_b.hdr.rob_idx = rob_idx_t'(wide_aw_out_data_out.rob_idx);
     floo_wide_b.hdr.dst_id  = wide_aw_out_data_out.src_id;
+    floo_wide_b.hdr.dst_mask_id = '0;
     floo_wide_b.hdr.src_id  = id_i;
     floo_wide_b.hdr.last    = 1'b1;
     floo_wide_b.hdr.axi_ch  = WideB;
@@ -755,9 +819,11 @@ module floo_narrow_wide_chimney
 
   always_comb begin
     floo_wide_r             = '0;
+    floo_wide_r.hdr.mcast_flag = 0;
     floo_wide_r.hdr.rob_req = wide_ar_out_data_out.rob_req;
     floo_wide_r.hdr.rob_idx = rob_idx_t'(wide_ar_out_data_out.rob_idx);
     floo_wide_r.hdr.dst_id  = wide_ar_out_data_out.src_id;
+    floo_wide_r.hdr.dst_mask_id = '0;
     floo_wide_r.hdr.src_id  = id_i;
     floo_wide_r.hdr.axi_ch  = WideR;
     floo_wide_r.hdr.last    = 1'b1; // There is no reason to do wormhole routing for R bursts
@@ -786,7 +852,7 @@ module floo_narrow_wide_chimney
   `FF(narrow_aw_w_sel_q, narrow_aw_w_sel_d, SelAw)
   `FF(wide_aw_w_sel_q, wide_aw_w_sel_d, SelAw)
 
-  assign floo_req_arb_req_in[NarrowW]  = (narrow_aw_w_sel_q == SelAw) &&
+  assign floo_req_arb_req_in[NarrowW]  = (narrow_aw_w_sel_q == SelAw) &&  // valid signal for wormhole arbiter.
                                           (narrow_aw_rob_valid_out ||
                                           ((axi_narrow_aw_queue.atop != axi_pkg::ATOP_NONE) &&
                                           axi_narrow_aw_queue_valid_out)) ||
@@ -968,6 +1034,10 @@ module floo_narrow_wide_chimney
     ar_valid  : axi_valid_in[WideAr],
     r_ready   : floo_wide_arb_gnt_out[WideR]
   };
+
+  // for (genvar d = 0; d < mcast_num_dst; d++) begin
+    
+  // end
 
   assign narrow_b_rob_valid_in      = axi_valid_in[NarrowB] && !is_atop_b_rsp;
   assign narrow_r_rob_valid_in      = axi_valid_in[NarrowR] && !is_atop_r_rsp;
