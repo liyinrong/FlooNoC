@@ -381,9 +381,11 @@ class Routing(BaseModel):
     def render_flit_header(self) -> str:
         """Render the SystemVerilog flit header."""
         header_fields = {
+            "mcast_flag" : "logic",
             "rob_req": "logic",
             "rob_idx": "rob_idx_t",
             "dst_id": "id_t",
+            "dst_mask_id" : "id_t",
             "src_id": "id_t",
             "last": "logic",
             "atop": "logic",

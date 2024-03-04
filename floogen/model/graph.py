@@ -150,6 +150,7 @@ class Graph(nx.DiGraph): # pylint: disable=too-many-public-methods
 
     def get_nodes_from_range(self, node: str, rng: List[Tuple[int]]):
         """Return the nodes from the range."""
+        print (rng)
         nodes = []
         match rng:
             # 2D range

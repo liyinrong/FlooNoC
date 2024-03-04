@@ -1,0 +1,125 @@
+# Copyright 2023 ETH Zurich and University of Bologna.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+name: router1-endpoint4
+description: "4 endpoints connected to 1 router"
+
+routing:
+  route_algo: "XY"
+  use_id_table: true
+
+protocols:
+  - name: "narrow"
+    type: "AXI4"
+    direction: "manager"
+    data_width: 64
+    addr_width: 48
+    id_width: 4
+    user_width: 4
+  - name: "narrow"
+    type: "AXI4"
+    direction: "subordinate"
+    data_width: 64
+    addr_width: 48
+    id_width: 2
+    user_width: 4
+  - name: "wide"
+    type: "AXI4"
+    direction: "manager"
+    data_width: 512
+    addr_width: 48
+    id_width: 3
+    user_width: 4
+  - name: "wide"
+    type: "AXI4"
+    direction: "subordinate"
+    data_width: 512
+    addr_width: 48
+    id_width: 1
+    user_width: 4
+
+endpoints:
+  # - name: "cluster0"
+  #   addr_range:
+  #     start: 0x0000_0000_0000
+  #     end: 0x0000_0000_3fff
+  #   mgr_port_protocol:
+  #     - "narrow"
+  #     - "wide"
+  #   sbr_port_protocol:
+  #     - "narrow"
+  #     - "wide"
+  #   id_offset:
+  #     x: 0
+  #     y: 0
+  - name: "cluster1"
+    addr_range:
+      start: 0x0000_1000_0000
+      end: 0x0000_1000_3fff
+    mgr_port_protocol:
+      - "narrow"
+      - "wide"
+    sbr_port_protocol:
+      - "narrow"
+      - "wide"
+    id_offset:
+      x: 0
+      y: 1
+  - name: "cluster2"
+    addr_range:
+      start: 0x0000_1000_4000
+      end: 0x0000_1000_7fff
+    mgr_port_protocol:
+      - "narrow"
+      - "wide"
+    sbr_port_protocol:
+      - "narrow"
+      - "wide"
+    id_offset:
+      x: 1
+      y: 0
+  - name: "cluster3"
+    addr_range:
+      start: 0x0000_1000_8000
+      end: 0x0000_1000_bfff
+    mgr_port_protocol:
+      - "narrow"
+      - "wide"
+    sbr_port_protocol:
+      - "narrow"
+      - "wide"
+    id_offset:
+      x: 0
+      y: -1
+  - name: "cluster4"
+    addr_range:
+      start: 0x0000_1000_c000
+      end: 0x0000_1001_0000
+    mgr_port_protocol:
+      - "narrow"
+      - "wide"
+    sbr_port_protocol:
+      - "narrow"
+      - "wide"
+    id_offset:
+      x: -1
+      y: 0
+
+routers:
+  - name: "router"
+    # array: [1]
+
+connections:
+  - src: "cluster1"
+    dst: "router"
+    bidirectional: true
+  - src: "cluster2"
+    dst: "router"
+    bidirectional: true
+  - src: "cluster3"
+    dst: "router"
+    bidirectional: true
+  - src: "cluster4"
+    dst: "router"
+    bidirectional: true
