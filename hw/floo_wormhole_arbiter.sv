@@ -10,6 +10,7 @@
 module floo_wormhole_arbiter import floo_pkg::*;
 #(
   parameter int unsigned NumRoutes  = 1,
+  // parameter int unsigned NumDst     = 1,
   parameter type         flit_t     = logic
 ) (
   input  logic                   clk_i,
@@ -50,7 +51,7 @@ module floo_wormhole_arbiter import floo_pkg::*;
     .gnt_i  ( ready_i & last_out ),
     .data_o (),
     .idx_o  ( selected_idx )
-  );
+  );    
 
   assign valid_selected_idx = (|valid_i) ? selected_idx : '0;
 

@@ -13,13 +13,16 @@ module tb_floo_rob;
   import floo_pkg::*;
   import floo_test_pkg::*;
   import floo_axi_pkg::*;
+  import floo_narrow_wide_pkg::*;
 
   localparam time CyclTime = 10ns;
   localparam time ApplTime = 2ns;
   localparam time TestTime = 8ns;
 
-  localparam int unsigned NumReads = 1000;
-  localparam int unsigned NumWrites = 1000;
+  localparam int unsigned NarrowNumReads = 1000;
+  localparam int unsigned NarrowNumWrites = 1000;
+  localparam int unsigned WideNumReads = 1000;
+  localparam int unsigned WideNumWrites = 1000;
 
   localparam int unsigned ReorderBufferSize = 64;
   localparam int unsigned MaxTxns = 32;
@@ -29,8 +32,12 @@ module tb_floo_rob;
 
   logic clk, rst_n;
 
-  axi_in_req_t  node_mst_req;
-  axi_in_rsp_t node_mst_rsp;
+  // axi_in_req_t  node_mst_req;
+  // axi_in_rsp_t node_mst_rsp;
+  axi_narrow_in_req_t node_narrow_man_req;
+  axi_wide_in_req_t node_wide_man_req;
+  axi_narrow_in_rsp_t node_narrow_man_rsp;
+  axi_wide_in_rsp_t node_wide_man_rsp;
 
   axi_out_req_t  [NumDirections-1:0] node_slv_req;
   axi_out_rsp_t [NumDirections-1:0] node_slv_rsp;
@@ -114,13 +121,13 @@ module tb_floo_rob;
     .NumAddrRegions ( NumAddrRegions      ),
     .rule_t         ( node_addr_region_t  ),
     .AddrRegions    ( AddrRegions         ),
-    .NumReads       ( NumReads            ),
-    .NumWrites      ( NumWrites           )
-  ) i_test_node_0 (
+    .NumReads       ( NarrowNumReads      ),
+    .NumWrites      ( NarrowNumWrites     )
+  ) i_narrow_test_node_0 (
     .clk_i          ( clk                 ),
     .rst_ni         ( rst_n               ),
-    .mst_port_req_o ( node_mst_req        ),
-    .mst_port_rsp_i ( node_mst_rsp        ),
+    .mst_port_req_o ( node_narrow_man_req ),
+    .mst_port_rsp_i ( node_narrow_man_rsp ),
     .slv_port_req_i ( node_slv_req[Eject] ),
     .slv_port_rsp_o ( node_slv_rsp[Eject] ),
     .end_of_sim     ( end_of_sim[0]       )
@@ -135,8 +142,8 @@ module tb_floo_rob;
     .rst_ni         ( rst_n                     ),
     .sram_cfg_i     ( '0                        ),
     .test_enable_i  ( 1'b0                      ),
-    .axi_in_req_i   ( node_mst_req              ),
-    .axi_in_rsp_o   ( node_mst_rsp              ),
+    .axi_in_req_i   ( node_narrow_man_req       ),
+    .axi_in_rsp_o   ( node_narrow_man_rsp       ),
     .axi_out_req_o  ( node_slv_req[Eject]       ),
     .axi_out_rsp_i  ( node_slv_rsp[Eject]       ),
     .id_i           ( xy_id[Eject]              ),

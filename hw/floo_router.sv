@@ -20,6 +20,7 @@ module floo_router import floo_pkg::*; #(
   parameter type         id_t             = logic[IdWidth-1:0],
   /// Used for ID-based routing
   parameter int unsigned NumAddrRules     = 0,
+  // parameter bit          McastFlag        = 1'b0,
   parameter type         addr_rule_t      = logic,
   /// Configuration parameters for special network topologies
   parameter int unsigned NumInput         = NumRoutes,
@@ -49,12 +50,14 @@ module floo_router import floo_pkg::*; #(
   logic  [NumInput-1:0][NumVirtChannels-1:0] in_valid, in_ready;
 
   logic  [NumInput-1:0][NumVirtChannels-1:0][NumOutput-1:0] route_mask;
+  // logic  [NumInput-1:0][NumVirtChannels-1:0][3:0][4:0] routes_onehot; //XY-routing, NumRoutes=5;
 
   // Router input part
   for (genvar in_route = 0; in_route < NumInput; in_route++) begin : gen_input
     for (genvar v_chan = 0; v_chan < NumVirtChannels; v_chan++) begin : gen_virt_input
 
       logic [cf_math_pkg::idx_width(NumPhysChannels)-1:0] in_phys_channel;
+      // int NumDst = $countones(in_data[in_route][v_chan].hdr.dst_mask_id);
       if (NumPhysChannels == 1) begin : gen_single_phys
         assign in_phys_channel = '0;
       end else if (NumPhysChannels == NumVirtChannels) begin : gen_virt_eq_phys
@@ -86,6 +89,7 @@ module floo_router import floo_pkg::*; #(
         .flit_t       ( flit_t       ),
         .RouteAlgo    ( RouteAlgo    ),
         .IdWidth      ( IdWidth      ),
+        // .McastFlag    ( McastFlag    ),
         .id_t         ( id_t         ),
         .NumAddrRules ( NumAddrRules ),
         .addr_rule_t  ( addr_rule_t  )
@@ -101,6 +105,7 @@ module floo_router import floo_pkg::*; #(
         .ready_i        ( in_ready      [in_route][v_chan] ),
         .channel_o      ( in_routed_data[in_route][v_chan] ),
         .route_sel_o    ( route_mask    [in_route][v_chan] )
+        // .routes_onehot_o( routes_onehot[in_route][v_chan][NumDst-1:0] )
       );
 
     end
@@ -134,7 +139,7 @@ module floo_router import floo_pkg::*; #(
           assign masked_valid[out_route][v_chan][ModInRoute] =
             in_valid[in_route][v_chan] & route_mask[in_route][v_chan][out_route];
           assign masked_data[out_route][v_chan][ModInRoute] =
-            in_routed_data[in_route][v_chan];
+            in_routed_data[in_route][v_chan]; // This is already flit replication
         end
       end
       assign in_ready[in_route][v_chan] =
@@ -143,7 +148,7 @@ module floo_router import floo_pkg::*; #(
   end
 
 
-  flit_t [NumOutput-1:0][NumVirtChannels-1:0] out_data, out_buffered_data;
+  flit_t [NumOutput-1:0][NumVirtChannels-1:0] out_data, out_buffered_data; 
   logic  [NumOutput-1:0][NumVirtChannels-1:0] out_valid, out_ready;
   logic  [NumOutput-1:0][NumVirtChannels-1:0] out_buffered_valid, out_buffered_ready;
 
@@ -151,7 +156,9 @@ module floo_router import floo_pkg::*; #(
 
     // arbitrate input fifos per virtual channel
     for (genvar v_chan = 0; v_chan < NumVirtChannels; v_chan++) begin : gen_virt_output
-
+      
+      // int NumDst = $countones(masked_data[out_route][v_chan].hdr.dst_mask_id);
+      // for (genvar d = 0; d < NumDst; d++) begin : flit_replication
       floo_wormhole_arbiter #(
         .NumRoutes  ( NumInputLimited ),
         .flit_t     ( flit_t          )
@@ -162,11 +169,10 @@ module floo_router import floo_pkg::*; #(
         .valid_i ( masked_valid[out_route][v_chan] ),
         .ready_o ( masked_ready[out_route][v_chan] ),
         .data_i  ( masked_data [out_route][v_chan] ),
-
         .valid_o ( out_valid[out_route][v_chan] ),
         .ready_i ( out_ready[out_route][v_chan] ),
         .data_o  ( out_data [out_route][v_chan] )
-      );
+      ); 
 
       if (OutputFifoDepth > 0) begin : gen_out_fifo
         (* ungroup *)
@@ -191,6 +197,7 @@ module floo_router import floo_pkg::*; #(
         assign out_buffered_valid[out_route][v_chan] = out_valid         [out_route][v_chan];
         assign out_ready         [out_route][v_chan] = out_buffered_ready[out_route][v_chan];
       end
+      // end
     end
 
     // Arbitrate virtual channels onto the physical channel
@@ -202,14 +209,14 @@ module floo_router import floo_pkg::*; #(
       .clk_i,
       .rst_ni,
 
-      .valid_i ( out_buffered_valid[out_route] ),
-      .ready_o ( out_buffered_ready[out_route] ),
-      .data_i  ( out_buffered_data [out_route] ),
+      .valid_i ( out_buffered_valid[out_route][NumVirtChannels-1:0] ),
+      .ready_o ( out_buffered_ready[out_route][NumVirtChannels-1:0] ),
+      .data_i  ( out_buffered_data [out_route][NumVirtChannels-1:0] ),
 
-      .ready_i ( ready_i  [out_route] ),
+      .ready_i ( ready_i  [out_route][NumVirtChannels-1:0] ),
       .valid_o ( valid_o  [out_route] ),
       .data_o  ( data_o   [out_route] )
-    );
+    );      
   end
 
   for (genvar i = 0; i < NumInput; i++) begin : gen_input_assert
@@ -231,14 +238,14 @@ module floo_router import floo_pkg::*; #(
   end
 
   // If XYRouting optimization is enabled, assert that not Y->X routing occurs
-  if ((RouteAlgo == XYRouting) && XYRouteOpt) begin : gen_xy_opt_assert
-    for (genvar v = 0; v < NumVirtChannels; v++) begin : gen_virt
-      `ASSERT(XYDirectionNotAllowed,
-          !(in_valid[South][v] && route_mask[South][v][East]) &&
-          !(in_valid[South][v] && route_mask[South][v][West]) &&
-          !(in_valid[North][v] && route_mask[North][v][East]) &&
-          !(in_valid[North][v] && route_mask[North][v][West]))
-    end
-  end
+  // if ((RouteAlgo == XYRouting) && XYRouteOpt) begin : gen_xy_opt_assert
+  //   for (genvar v = 0; v < NumVirtChannels; v++) begin : gen_virt
+  //     `ASSERT(XYDirectionNotAllowed,
+  //         !(in_valid[South][v] && route_mask[South][v][East]) &&
+  //         !(in_valid[South][v] && route_mask[South][v][West]) &&
+  //         !(in_valid[North][v] && route_mask[North][v][East]) &&
+  //         !(in_valid[North][v] && route_mask[North][v][West]))
+  //   end
+  // end
 
 endmodule

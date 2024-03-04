@@ -32,32 +32,32 @@ package floo_narrow_wide_pkg;
   localparam int unsigned AxiNarrowInAddrWidth = 48;
   localparam int unsigned AxiNarrowInDataWidth = 64;
   localparam int unsigned AxiNarrowInIdWidth = 4;
-  localparam int unsigned AxiNarrowInUserWidth = 4;
+  localparam int unsigned AxiNarrowInUserWidth = 1;
 
 
   localparam int unsigned AxiNarrowOutAddrWidth = 48;
   localparam int unsigned AxiNarrowOutDataWidth = 64;
   localparam int unsigned AxiNarrowOutIdWidth = 2;
-  localparam int unsigned AxiNarrowOutUserWidth = 4;
+  localparam int unsigned AxiNarrowOutUserWidth = 1;
 
 
   localparam int unsigned AxiWideInAddrWidth = 48;
   localparam int unsigned AxiWideInDataWidth = 512;
   localparam int unsigned AxiWideInIdWidth = 3;
-  localparam int unsigned AxiWideInUserWidth = 4;
+  localparam int unsigned AxiWideInUserWidth = 1;
 
 
   localparam int unsigned AxiWideOutAddrWidth = 48;
   localparam int unsigned AxiWideOutDataWidth = 512;
   localparam int unsigned AxiWideOutIdWidth = 1;
-  localparam int unsigned AxiWideOutUserWidth = 4;
+  localparam int unsigned AxiWideOutUserWidth = 1;
 
 
   typedef logic [47:0] axi_narrow_in_addr_t;
   typedef logic [63:0] axi_narrow_in_data_t;
   typedef logic [7:0] axi_narrow_in_strb_t;
   typedef logic [3:0] axi_narrow_in_id_t;
-  typedef logic [3:0] axi_narrow_in_user_t;
+  typedef logic [0:0] axi_narrow_in_user_t;
   `AXI_TYPEDEF_ALL_CT(axi_narrow_in, axi_narrow_in_req_t, axi_narrow_in_rsp_t, axi_narrow_in_addr_t,
                       axi_narrow_in_id_t, axi_narrow_in_data_t, axi_narrow_in_strb_t,
                       axi_narrow_in_user_t)
@@ -67,7 +67,7 @@ package floo_narrow_wide_pkg;
   typedef logic [63:0] axi_narrow_out_data_t;
   typedef logic [7:0] axi_narrow_out_strb_t;
   typedef logic [1:0] axi_narrow_out_id_t;
-  typedef logic [3:0] axi_narrow_out_user_t;
+  typedef logic [0:0] axi_narrow_out_user_t;
   `AXI_TYPEDEF_ALL_CT(axi_narrow_out, axi_narrow_out_req_t, axi_narrow_out_rsp_t,
                       axi_narrow_out_addr_t, axi_narrow_out_id_t, axi_narrow_out_data_t,
                       axi_narrow_out_strb_t, axi_narrow_out_user_t)
@@ -77,7 +77,7 @@ package floo_narrow_wide_pkg;
   typedef logic [511:0] axi_wide_in_data_t;
   typedef logic [63:0] axi_wide_in_strb_t;
   typedef logic [2:0] axi_wide_in_id_t;
-  typedef logic [3:0] axi_wide_in_user_t;
+  typedef logic [0:0] axi_wide_in_user_t;
   `AXI_TYPEDEF_ALL_CT(axi_wide_in, axi_wide_in_req_t, axi_wide_in_rsp_t, axi_wide_in_addr_t,
                       axi_wide_in_id_t, axi_wide_in_data_t, axi_wide_in_strb_t, axi_wide_in_user_t)
 
@@ -86,7 +86,7 @@ package floo_narrow_wide_pkg;
   typedef logic [511:0] axi_wide_out_data_t;
   typedef logic [63:0] axi_wide_out_strb_t;
   typedef logic [0:0] axi_wide_out_id_t;
-  typedef logic [3:0] axi_wide_out_user_t;
+  typedef logic [0:0] axi_wide_out_user_t;
   `AXI_TYPEDEF_ALL_CT(axi_wide_out, axi_wide_out_req_t, axi_wide_out_rsp_t, axi_wide_out_addr_t,
                       axi_wide_out_id_t, axi_wide_out_data_t, axi_wide_out_strb_t,
                       axi_wide_out_user_t)
@@ -99,29 +99,27 @@ package floo_narrow_wide_pkg;
 
   localparam route_algo_e RouteAlgo = XYRouting;
   localparam bit UseIdTable = 1'b1;
-  localparam int unsigned NumXBits = 1;
-  localparam int unsigned NumYBits = 1;
+  localparam int unsigned NumXBits = 0;
+  localparam int unsigned NumYBits = 3;
   localparam int unsigned XYAddrOffsetX = 29;
-  localparam int unsigned XYAddrOffsetY = 30;
+  localparam int unsigned XYAddrOffsetY = 29;
   localparam int unsigned IdAddrOffset = 0;
 
 
   typedef logic [3:0] rob_idx_t;
-  typedef logic [1:0] x_bits_t;
-  typedef logic [1:0] y_bits_t;
+  typedef logic [-1:0] x_bits_t;
+  typedef logic [2:0] y_bits_t;
   typedef struct packed {
     x_bits_t x;
     y_bits_t y;
   } id_t;
 
-  typedef logic [3:0] mask_id_t;
+
 
   typedef struct packed {
-    logic mcast_flag;
     logic rob_req;
     rob_idx_t rob_idx;
     id_t dst_id;
-    mask_id_t dst_mask_id;
     id_t src_id;
     logic last;
     logic atop;
@@ -140,13 +138,17 @@ package floo_narrow_wide_pkg;
     logic [47:0] end_addr;
   } addr_map_rule_t;
 
-  localparam int unsigned AddrMapNumRules = 4;
+  localparam int unsigned AddrMapNumRules = 8;
 
-  localparam addr_map_rule_t [3:0] AddrMap = '{
-      '{idx: '{x: 1, y: 2}, start_addr: 48'h000010000000, end_addr: 48'h000010003fff},
-      '{idx: '{x: 2, y: 1}, start_addr: 48'h000010004000, end_addr: 48'h000010007fff},
-      '{idx: '{x: 1, y: 0}, start_addr: 48'h000010008000, end_addr: 48'h00001000bfff},
-      '{idx: '{x: 0, y: 1}, start_addr: 48'h00001000c000, end_addr: 48'h000010010000}
+  localparam addr_map_rule_t [7:0] AddrMap = '{
+      '{idx: '{x: 0, y: 0}, start_addr: 48'h000010000000, end_addr: 48'h000010040000},
+      '{idx: '{x: 0, y: 1}, start_addr: 48'h000010080000, end_addr: 48'h0000100c0000},
+      '{idx: '{x: 0, y: 2}, start_addr: 48'h000010100000, end_addr: 48'h000010140000},
+      '{idx: '{x: 0, y: 3}, start_addr: 48'h000010180000, end_addr: 48'h0000101c0000},
+      '{idx: '{x: 1, y: 0}, start_addr: 48'h000010040000, end_addr: 48'h000010080000},
+      '{idx: '{x: 1, y: 1}, start_addr: 48'h0000100c0000, end_addr: 48'h000010100000},
+      '{idx: '{x: 1, y: 2}, start_addr: 48'h000010140000, end_addr: 48'h000010180000},
+      '{idx: '{x: 1, y: 3}, start_addr: 48'h0000101c0000, end_addr: 48'h000010200000}
   };
 
 
@@ -213,17 +215,17 @@ package floo_narrow_wide_pkg;
 
   typedef struct packed {
     hdr_t hdr;
-    logic [90:0] rsvd;
+    logic [87:0] rsvd;
   } floo_req_generic_flit_t;
 
   typedef struct packed {
     hdr_t hdr;
-    logic [74:0] rsvd;
+    logic [71:0] rsvd;
   } floo_rsp_generic_flit_t;
 
   typedef struct packed {
     hdr_t hdr;
-    logic [580:0] rsvd;
+    logic [577:0] rsvd;
   } floo_wide_generic_flit_t;
 
 

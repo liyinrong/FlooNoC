@@ -58,7 +58,7 @@ module floo_route_comp
       .idx_o            ( id_o      ),
       .dec_valid_o      (           ),
       .dec_error_o      ( dec_error ),
-      .en_default_idx_i ( 1'b0      ),
+      .en_default_idx_i ( 1'b1      ),
       .default_idx_i    ( '0        )
     );
 

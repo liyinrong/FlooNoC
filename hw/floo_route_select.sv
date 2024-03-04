@@ -16,6 +16,8 @@ module floo_route_select import floo_pkg::*;
   parameter int unsigned IdWidth       = 0,
   /// Used for ID-based routing
   parameter int unsigned NumAddrRules  = 0,
+  // parameter int unsigned NumDst        = 1,
+  // parameter bit          McastFlag     = 1'b0,
   parameter type         addr_rule_t   = logic,
   parameter type         id_t          = logic[IdWidth-1:0]
   // parameter int unsigned RouteSelWidth = $clog2(NumRoutes)
@@ -31,11 +33,15 @@ module floo_route_select import floo_pkg::*;
   input  logic                          valid_i,
   input  logic                          ready_i,
   output flit_t                         channel_o,
-  output logic       [   NumRoutes-1:0] route_sel_o // One-hot route
-
+  output logic       [NumRoutes-1:0]    route_sel_o // One-hot route (unicast), for multicast this is not one-hot.
+  // output logic       [NumDst-1:0][4:0]  routes_onehot_o
 );
 
-  logic [NumRoutes-1:0] route_sel;
+  logic [NumRoutes-1:0] route_sel, route_sel_mcast, route_res;
+  logic mcast_flag;
+  assign mcast_flag = (channel_i.hdr.mcast_flag && RouteAlgo == XYRouting);
+  // int NumDst = $countones(channel_i.hdr.dst_mask_id);
+  // assign num_dst_o = NumDst;
 
   if (RouteAlgo == IdIsPort) begin : gen_id_is_port
     // Routing assuming the ID is the port to be taken
@@ -45,7 +51,12 @@ module floo_route_select import floo_pkg::*;
     // One-hot encoding of the decoded route
     always_comb begin : proc_route_sel
       route_sel = '0;
-      route_sel[channel_i.hdr.dst_id] = 1'b1;
+      // if (channel_i.hdr.mcast_flag) begin
+      //   route_sel 
+      // end else begin
+      //   route_sel[channel_i.hdr.dst_id] = 1'b1; // Here multicast dst_mask needs changing.
+      // end
+      route_sel[channel_i.hdr.dst_id] = 1'b1;      
     end
 
   end else if (RouteAlgo == IdTable) begin : gen_id_table
@@ -103,6 +114,16 @@ module floo_route_select import floo_pkg::*;
 
     id_t id_in;
     assign id_in = id_t'(channel_i.hdr.dst_id);
+    
+    // id_t [3:0] id_in_mask;
+  
+    mcast_dst_conversion # (
+      .NumRoutes(NumRoutes)
+    ) i_mcast_dst_conversion (
+      .mask_i(channel_i.hdr.dst_mask_id),
+      .xy_id_i    (xy_id_i),
+      .route_sel_o(route_sel_mcast)
+    );      
 
     always_comb begin : proc_route_sel
       route_sel = '0;
@@ -120,8 +141,8 @@ module floo_route_select import floo_pkg::*;
         end else begin
           route_sel[East] = 1'b1;
         end
-      end
-    end
+      end            
+    end      
 
     assign channel_o = channel_i;
 
@@ -132,11 +153,13 @@ module floo_route_select import floo_pkg::*;
     end
   end
 
+  assign route_res = (mcast_flag) ? route_sel_mcast : route_sel;
+
   if (LockRouting) begin : gen_lock
     logic locked_route_d, locked_route_q;
     logic [NumRoutes-1:0] route_sel_q;
 
-    assign route_sel_o = locked_route_q ? route_sel_q : route_sel;
+    assign route_sel_o = locked_route_q ? route_sel_q : route_res;
 
     always_comb begin
       locked_route_d = locked_route_q;
@@ -148,15 +171,15 @@ module floo_route_select import floo_pkg::*;
     end
 
     always @(posedge clk_i) begin
-      if (ready_i && valid_i && locked_route_q && (route_sel_q != route_sel))
+      if (ready_i && valid_i && locked_route_q && (route_sel_q != route_res))
         $warning("Mismatch in route selection!");
     end
 
     `FF(locked_route_q, locked_route_d, '0)
-    `FFL(route_sel_q, route_sel, ~locked_route_q, '0)
+    `FFL(route_sel_q, route_res, ~locked_route_q, '0)
 
   end else begin : gen_no_lock
-    assign route_sel_o = route_sel;
+    assign route_sel_o = route_res;
   end
 
 endmodule
