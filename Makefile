@@ -10,6 +10,7 @@
 ##########
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+# MAKEFILE_LIST
 MKFILE_DIR  := $(dir $(MKFILE_PATH))
 
 .PHONY: all clean

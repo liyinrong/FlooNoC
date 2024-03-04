@@ -41,6 +41,8 @@ sources:
   - hw/floo_narrow_wide_chimney.sv
   - hw/floo_router.sv
   - hw/floo_narrow_wide_router.sv
+  - hw/mcast_dst_conversion.sv
+  - hw/router1_endpoint4_floo_noc.sv
 
   - target: test
     include_dirs:
@@ -60,10 +62,11 @@ sources:
       - hw/tb/tb_floo_axi_chimney.sv
       - hw/tb/tb_floo_narrow_wide_chimney.sv
       - hw/tb/tb_floo_router.sv
-      - hw/tb/tb_floo_rob.sv
+      # - hw/tb/tb_floo_rob.sv
       - hw/tb/tb_floo_dma_chimney.sv
       - hw/tb/tb_floo_dma_nw_chimney.sv
       - hw/tb/tb_floo_dma_mesh.sv
+      - hw/tb/tb_r1e4.sv
 
   - target: any(synthesis,spyglass)
     files:

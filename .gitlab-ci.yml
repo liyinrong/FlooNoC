@@ -7,7 +7,7 @@
 variables:
   VSIM: questa-2023.4 vsim
   BENDER: bender
-  PYTHON: /home/fischeti/micromamba/envs/floo/bin/python
+  PYTHON: /home/msc23h26/.conda/envs/floo/bin/python
 
 stages:
   - init
