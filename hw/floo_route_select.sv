@@ -125,8 +125,9 @@ module floo_route_select import floo_pkg::*;
     ) i_mcast_dst_conversion (
       .mask_i(channel_i.hdr.dst_mask_id),
       .xy_id_i    (xy_id_i),
+      .src_id_i   (channel_i.hdr.src_id),
       .route_sel_o(route_sel_mcast)
-    );      
+    );
 
     always_comb begin : proc_route_sel
       route_sel = '0;

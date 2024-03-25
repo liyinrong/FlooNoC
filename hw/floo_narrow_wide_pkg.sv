@@ -32,32 +32,32 @@ package floo_narrow_wide_pkg;
   localparam int unsigned AxiNarrowInAddrWidth = 48;
   localparam int unsigned AxiNarrowInDataWidth = 64;
   localparam int unsigned AxiNarrowInIdWidth = 4;
-  localparam int unsigned AxiNarrowInUserWidth = 4;
+  localparam int unsigned AxiNarrowInUserWidth = 48;
 
 
   localparam int unsigned AxiNarrowOutAddrWidth = 48;
   localparam int unsigned AxiNarrowOutDataWidth = 64;
   localparam int unsigned AxiNarrowOutIdWidth = 2;
-  localparam int unsigned AxiNarrowOutUserWidth = 4;
+  localparam int unsigned AxiNarrowOutUserWidth = 48;
 
 
   localparam int unsigned AxiWideInAddrWidth = 48;
   localparam int unsigned AxiWideInDataWidth = 512;
   localparam int unsigned AxiWideInIdWidth = 3;
-  localparam int unsigned AxiWideInUserWidth = 4;
+  localparam int unsigned AxiWideInUserWidth = 48;
 
 
   localparam int unsigned AxiWideOutAddrWidth = 48;
   localparam int unsigned AxiWideOutDataWidth = 512;
   localparam int unsigned AxiWideOutIdWidth = 1;
-  localparam int unsigned AxiWideOutUserWidth = 4;
+  localparam int unsigned AxiWideOutUserWidth = 48;
 
 
   typedef logic [47:0] axi_narrow_in_addr_t;
   typedef logic [63:0] axi_narrow_in_data_t;
   typedef logic [7:0] axi_narrow_in_strb_t;
   typedef logic [3:0] axi_narrow_in_id_t;
-  typedef logic [3:0] axi_narrow_in_user_t;
+  typedef logic [47:0] axi_narrow_in_user_t;
   `AXI_TYPEDEF_ALL_CT(axi_narrow_in, axi_narrow_in_req_t, axi_narrow_in_rsp_t, axi_narrow_in_addr_t,
                       axi_narrow_in_id_t, axi_narrow_in_data_t, axi_narrow_in_strb_t,
                       axi_narrow_in_user_t)
@@ -67,7 +67,7 @@ package floo_narrow_wide_pkg;
   typedef logic [63:0] axi_narrow_out_data_t;
   typedef logic [7:0] axi_narrow_out_strb_t;
   typedef logic [1:0] axi_narrow_out_id_t;
-  typedef logic [3:0] axi_narrow_out_user_t;
+  typedef logic [47:0] axi_narrow_out_user_t;
   `AXI_TYPEDEF_ALL_CT(axi_narrow_out, axi_narrow_out_req_t, axi_narrow_out_rsp_t,
                       axi_narrow_out_addr_t, axi_narrow_out_id_t, axi_narrow_out_data_t,
                       axi_narrow_out_strb_t, axi_narrow_out_user_t)
@@ -77,7 +77,7 @@ package floo_narrow_wide_pkg;
   typedef logic [511:0] axi_wide_in_data_t;
   typedef logic [63:0] axi_wide_in_strb_t;
   typedef logic [2:0] axi_wide_in_id_t;
-  typedef logic [3:0] axi_wide_in_user_t;
+  typedef logic [47:0] axi_wide_in_user_t;
   `AXI_TYPEDEF_ALL_CT(axi_wide_in, axi_wide_in_req_t, axi_wide_in_rsp_t, axi_wide_in_addr_t,
                       axi_wide_in_id_t, axi_wide_in_data_t, axi_wide_in_strb_t, axi_wide_in_user_t)
 
@@ -86,7 +86,7 @@ package floo_narrow_wide_pkg;
   typedef logic [511:0] axi_wide_out_data_t;
   typedef logic [63:0] axi_wide_out_strb_t;
   typedef logic [0:0] axi_wide_out_id_t;
-  typedef logic [3:0] axi_wide_out_user_t;
+  typedef logic [47:0] axi_wide_out_user_t;
   `AXI_TYPEDEF_ALL_CT(axi_wide_out, axi_wide_out_req_t, axi_wide_out_rsp_t, axi_wide_out_addr_t,
                       axi_wide_out_id_t, axi_wide_out_data_t, axi_wide_out_strb_t,
                       axi_wide_out_user_t)
@@ -101,8 +101,8 @@ package floo_narrow_wide_pkg;
   localparam bit UseIdTable = 1'b1;
   localparam int unsigned NumXBits = 2;
   localparam int unsigned NumYBits = 2;
-  localparam int unsigned XYAddrOffsetX = 29;
-  localparam int unsigned XYAddrOffsetY = 31;
+  localparam int unsigned XYAddrOffsetX = 16;
+  localparam int unsigned XYAddrOffsetY = 18;
   localparam int unsigned IdAddrOffset = 0;
 
 
@@ -116,13 +116,16 @@ package floo_narrow_wide_pkg;
 
   typedef logic route_t;
   typedef id_t dst_t;
-  typedef logic [3:0] mask_id_t
+  typedef logic [47:0] mask_t;
+  localparam int unsigned SamNumRules = 4;
+  typedef logic [SamNumRules-1:0] select_t;
+
 
   typedef struct packed {
     logic mcast_flag;
     logic rob_req;
     rob_idx_t rob_idx;
-    mask_id_t dst_mask_id;
+    select_t dst_mask_id;
     dst_t dst_id;
     id_t src_id;
     logic last;
@@ -136,8 +139,6 @@ package floo_narrow_wide_pkg;
   //   Address Map   //
   /////////////////////
 
-  localparam int unsigned SamNumRules = 4;
-
   typedef struct packed {
     id_t idx;
     logic [47:0] start_addr;
@@ -146,26 +147,60 @@ package floo_narrow_wide_pkg;
 
   localparam sam_rule_t [SamNumRules-1:0] Sam = '{
       '{
-          idx: '{x: -1, y: 0},
-          start_addr: 48'h000010000000,
-          end_addr: 48'h000010003fff
+          idx: '{x: 1, y: 2},
+          start_addr: 48'h000000000000,
+          end_addr: 48'h00000000ffff
       },  // cluster1_ni
       '{
-          idx: '{x: 0, y: -1},
-          start_addr: 48'h000010004000,
-          end_addr: 48'h000010007fff
+          idx: '{x: 2, y: 1},
+          start_addr: 48'h000000010000,
+          end_addr: 48'h000000010fff
       },  // cluster2_ni
       '{
-          idx: '{x: -1, y: -2},
-          start_addr: 48'h000010008000,
-          end_addr: 48'h00001000bfff
+          idx: '{x: 1, y: 0},
+          start_addr: 48'h000000011000,
+          end_addr: 48'h000000011fff
       },  // cluster3_ni
       '{
-          idx: '{x: -2, y: -1},
-          start_addr: 48'h00001000c000,
-          end_addr: 48'h000010010000
+          idx: '{x: 0, y: 1},
+          start_addr: 48'h000000012000,
+          end_addr: 48'h000000012fff
       }  // cluster4_ni
 
+  };
+
+  typedef struct packed {
+    int unsigned idx;
+    id_t coeff;
+    logic [47:0] addr;
+    logic [47:0] mask; 
+  } mask_rule_t;
+
+  localparam mask_rule_t [SamNumRules-1:0] SamMask = '{
+      '{
+         idx: 0,
+         coeff: '{x: 1, y: 2},
+         addr: 48'h000000000000,
+         mask: 48'h00000000ffff
+      },  // cluster1_ni
+      '{
+         idx: 1,
+         coeff: '{x: 2, y: 1},
+         addr: 48'h000000010000,
+         mask: 48'h000000000fff
+      }, // cluster2_ni
+      '{
+         idx: 2,
+         coeff: '{x: 1, y: 0},
+         addr: 48'h000000011000,
+         mask: 48'h000000000fff
+      }, // cluster3_ni
+      '{
+         idx: 3,
+         coeff: '{x: 0, y: 1},
+         addr: 48'h000000012000,
+         mask: 48'h000000000fff
+      }  // cluster4_ni
   };
 
 
@@ -232,17 +267,17 @@ package floo_narrow_wide_pkg;
 
   typedef struct packed {
     hdr_t hdr;
-    logic [90:0] rsvd;
+    logic [134:0] rsvd;
   } floo_req_generic_flit_t;
 
   typedef struct packed {
     hdr_t hdr;
-    logic [74:0] rsvd;
+    logic [118:0] rsvd;
   } floo_rsp_generic_flit_t;
 
   typedef struct packed {
     hdr_t hdr;
-    logic [580:0] rsvd;
+    logic [624:0] rsvd;
   } floo_wide_generic_flit_t;
 
 

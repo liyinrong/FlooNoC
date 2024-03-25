@@ -4,6 +4,7 @@
 //
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
+`include "common_cells/registers.svh"
 `include "common_cells/assertions.svh"
 
 /// A simple router with configurable number of ports, physical and virtual channels, and input/output buffers
@@ -49,15 +50,12 @@ module floo_router import floo_pkg::*; #(
   flit_t [NumInput-1:0][NumVirtChannels-1:0] in_data, in_routed_data;
   logic  [NumInput-1:0][NumVirtChannels-1:0] in_valid, in_ready;
 
-  logic  [NumInput-1:0][NumVirtChannels-1:0][NumOutput-1:0] route_mask;
-  // logic  [NumInput-1:0][NumVirtChannels-1:0][3:0][4:0] routes_onehot; //XY-routing, NumRoutes=5;
-
+  logic  [NumInput-1:0][NumVirtChannels-1:0][NumOutput-1:0] route_mask, route_mask_q;
+  
   // Router input part
   for (genvar in_route = 0; in_route < NumInput; in_route++) begin : gen_input
     for (genvar v_chan = 0; v_chan < NumVirtChannels; v_chan++) begin : gen_virt_input
-
       logic [cf_math_pkg::idx_width(NumPhysChannels)-1:0] in_phys_channel;
-      // int NumDst = $countones(in_data[in_route][v_chan].hdr.dst_mask_id);
       if (NumPhysChannels == 1) begin : gen_single_phys
         assign in_phys_channel = '0;
       end else if (NumPhysChannels == NumVirtChannels) begin : gen_virt_eq_phys
@@ -89,7 +87,6 @@ module floo_router import floo_pkg::*; #(
         .flit_t       ( flit_t       ),
         .RouteAlgo    ( RouteAlgo    ),
         .IdWidth      ( IdWidth      ),
-        // .McastFlag    ( McastFlag    ),
         .id_t         ( id_t         ),
         .NumAddrRules ( NumAddrRules ),
         .addr_rule_t  ( addr_rule_t  )
@@ -113,9 +110,9 @@ module floo_router import floo_pkg::*; #(
 
   localparam int unsigned NumInputLimited = NoLoopback ? NumInput-1 : NumInput;
 
+  logic  [NumInput-1:0][NumVirtChannels-1:0] mcast_flag, all_hs_complete;
   logic [NumOutput-1:0][NumVirtChannels-1:0][NumInputLimited-1:0] masked_valid, masked_ready;
-  logic [NumInput-1:0][NumVirtChannels-1:0][NumOutput-1:0] masked_all_ready;
-
+  logic [NumInput-1:0][NumVirtChannels-1:0][NumOutput-1:0] masked_all_ready, masked_all_ready_q, masked_valid_mcast, all_mcast_flag_q;
   flit_t [NumOutput-1:0][NumVirtChannels-1:0][NumInputLimited-1:0] masked_data;
 
   // TODO MICHAERO: reduce connections if (RouteAlgo == XYRouting)
@@ -134,23 +131,135 @@ module floo_router import floo_pkg::*; #(
           assign masked_valid[out_route][v_chan][ModInRoute] = '0;
           assign masked_data[out_route][v_chan][ModInRoute] = '0;
         end else begin : gen_default
-          assign masked_all_ready[in_route][v_chan][out_route] =
+          assign masked_all_ready[in_route][v_chan][out_route] = 
             masked_ready[out_route][v_chan][ModInRoute];
-          assign masked_valid[out_route][v_chan][ModInRoute] =
-            in_valid[in_route][v_chan] & route_mask[in_route][v_chan][out_route];
+          assign masked_valid[out_route][v_chan][ModInRoute] = mcast_flag[in_route][v_chan] ?
+            masked_valid_mcast[in_route][v_chan][out_route] :
+            in_valid[in_route][v_chan] & route_mask[in_route][v_chan][out_route];//mcast
           assign masked_data[out_route][v_chan][ModInRoute] =
             in_routed_data[in_route][v_chan]; // This is already flit replication
         end
       end
-      assign in_ready[in_route][v_chan] =
+      assign in_ready[in_route][v_chan] = mcast_flag[in_route][v_chan] ?
+        all_hs_complete[in_route][v_chan] :
         |(masked_all_ready[in_route][v_chan] & route_mask[in_route][v_chan]);
     end
   end
 
+  typedef enum logic [1:0] {
+    Idle = 2'b00,
+    ValidInput = 2'b01,
+    PartialHS = 2'b10
+    // CompleteHS = 2'b11
+  } fsm_e;
+
+  logic  [NumInput-1:0][NumVirtChannels-1:0][NumOutput-1:0] hs_flag_d, hs_flag_q; //handshake flags.
+  logic  [NumInput-1:0][NumVirtChannels-1:0] ready_monitor;
+  fsm_e  [NumInput-1:0][NumVirtChannels-1:0] hs_state_d, hs_state_q;
+  `FF(hs_state_q, hs_state_d, '0)
+  `FF(hs_flag_q, hs_flag_d, '0)
+  `FF(masked_all_ready_q, masked_all_ready, '0)
+
+  // Multicast Handshake FSM Logic
+  for (genvar in_route = 0; in_route < NumInput; in_route++) begin : gen_hs_input_mcast
+    for (genvar v_chan = 0; v_chan < NumVirtChannels; v_chan++) begin : gen_hs_virt_mcast
+      // for (genvar out_route = 0; out_route < NumOutput; out_route++) begin
+      //   localparam int unsigned ModInRoute =
+      //     in_route < out_route && NoLoopback ? in_route : in_route-1;
+      //   assign all_mcast_flag[out_route][v_chan][ModInRoute] = in_data[in_route][v_chan].hdr.mcast_flag;
+      // end
+      assign mcast_flag[in_route][v_chan] = in_data[in_route][v_chan].hdr.mcast_flag;
+      assign all_hs_complete[in_route][v_chan] = &(hs_flag_d[in_route][v_chan] | ~route_mask_q[in_route][v_chan]);
+      assign ready_monitor[in_route][v_chan] = |(masked_all_ready[in_route][v_chan] & route_mask[in_route][v_chan]);
+      
+      always_comb begin // Now we consume in_valid keeps asserted until it finishes the handshake and then waits for the next data.
+        if (hs_state_q[in_route][v_chan] == Idle) begin
+          hs_flag_d[in_route][v_chan] = '0;
+          masked_valid_mcast[in_route][v_chan] = '0;
+          if (~|(all_mcast_flag_q[in_route][v_chan] & route_mask_q[in_route][v_chan])) begin
+            hs_state_d[in_route][v_chan] = Idle;
+          end else if (in_valid[in_route][v_chan] && ~ready_monitor[in_route][v_chan]) begin
+            hs_state_d[in_route][v_chan] = ValidInput;
+          end else if (in_valid[in_route][v_chan] && ready_monitor[in_route][v_chan]) begin
+            hs_state_d[in_route][v_chan] = PartialHS;
+          end else begin
+            hs_state_d[in_route][v_chan] = Idle;
+          end
+        end else if (hs_state_q[in_route][v_chan] == ValidInput) begin
+          hs_flag_d[in_route][v_chan] = '0;
+          masked_valid_mcast[in_route][v_chan] = '1 & route_mask[in_route][v_chan]; //route_mask_q? Now route_mask and mcast_flag change at the same cycle (with in_data), while the last packet has not been transmitted.
+          if (~|(all_mcast_flag_q[in_route][v_chan] & route_mask_q[in_route][v_chan])) begin
+            hs_state_d[in_route][v_chan] = Idle;
+          end else if (in_valid[in_route][v_chan] && ready_monitor[in_route][v_chan]) begin
+            hs_state_d[in_route][v_chan] = PartialHS;
+          end else if (in_valid[in_route][v_chan] && ~ready_monitor[in_route][v_chan]) begin
+            hs_state_d[in_route][v_chan] = ValidInput;
+          end else begin
+            hs_state_d[in_route][v_chan] = Idle;
+          end
+        end else if (hs_state_q[in_route][v_chan] == PartialHS) begin
+          hs_flag_d[in_route][v_chan] = masked_all_ready_q[in_route][v_chan] | hs_flag_q[in_route][v_chan];
+          masked_valid_mcast[in_route][v_chan] = ~hs_flag_d[in_route][v_chan] & route_mask_q[in_route][v_chan];
+          if (~|(all_mcast_flag_q[in_route][v_chan] & route_mask_q[in_route][v_chan])) begin
+            hs_state_d[in_route][v_chan] = Idle;
+          end else if (in_valid[in_route][v_chan] && all_hs_complete[in_route][v_chan]) begin
+            hs_state_d[in_route][v_chan] = ValidInput;
+          end else if (in_valid[in_route][v_chan] && ~all_hs_complete[in_route][v_chan]) begin
+            hs_state_d[in_route][v_chan] = PartialHS;
+          end else begin
+            hs_state_d[in_route][v_chan] = Idle;
+          end
+        end
+      end
+    end
+  end  
 
   flit_t [NumOutput-1:0][NumVirtChannels-1:0] out_data, out_buffered_data; 
   logic  [NumOutput-1:0][NumVirtChannels-1:0] out_valid, out_ready;
   logic  [NumOutput-1:0][NumVirtChannels-1:0] out_buffered_valid, out_buffered_ready;
+  logic  [NumOutput-1:0][NumVirtChannels-1:0] out_initial_d, out_initial_q;
+  `FF(out_initial_q, out_initial_d, '0)
+  // logic  [NumOutput-1:0] unicast_end;
+
+  for (genvar out_route = 0; out_route < NumOutput; out_route++) begin
+    for (genvar v_chan = 0; v_chan < NumVirtChannels; v_chan++) begin
+      // assign out_last[out_route][v_chan] = out_buffered_data[out_route][v_chan].hdr.last;
+      // `FFL(out_initial[out_route][v_chan], 1'b1, out_buffered_valid[out_route][v_chan], 1'b0)
+      always_comb begin
+        // out_initial_d[out_route][v_chan] = 1'b0;
+        if (~out_initial_q[out_route][v_chan]) begin
+          if (out_valid[out_route][v_chan]) begin
+            out_initial_d[out_route][v_chan] = 1'b1;
+          end else begin
+            out_initial_d[out_route][v_chan] = 1'b0;
+          end
+        end else begin
+          if (out_data[out_route][v_chan].hdr.last) begin
+            out_initial_d[out_route][v_chan] = 1'b0;
+          end else begin
+            out_initial_d[out_route][v_chan] = 1'b1;
+          end
+        end
+      end
+    end
+  end
+
+  for (genvar in_route = 0; in_route < NumInput; in_route++) begin
+    for (genvar v_chan = 0; v_chan < NumVirtChannels; v_chan++) begin
+      for (genvar out_route = 0; out_route < NumOutput; out_route++) begin
+        // `FFL(all_mcast_flag_q[in_route][v_chan][out_route], mcast_flag[in_route][v_chan], (out_initial_q[out_route][v_chan] && 
+        //   out_buffered_ready[out_route][v_chan] && out_buffered_valid[out_route][v_chan] && out_buffered_data[out_route][v_chan].hdr.last) || 
+        //   (~out_initial[out_route][v_chan] && out_buffered_valid[out_route][v_chan]), 1'b0)
+        // `FFL(route_mask_q[in_route][v_chan][out_route], route_mask[in_route][v_chan][out_route], (out_initial_q[out_route][v_chan] && 
+        //   out_buffered_ready[out_route][v_chan] && out_buffered_valid[out_route][v_chan] && out_buffered_data[out_route][v_chan].hdr.last) || 
+        //   (~out_initial[out_route][v_chan] && out_buffered_valid[out_route][v_chan]), 1'b0)
+        `FFL(all_mcast_flag_q[in_route][v_chan][out_route], mcast_flag[in_route][v_chan],  
+          ~out_initial_q[out_route][v_chan] && out_valid[out_route][v_chan], 1'b0)
+        `FFL(route_mask_q[in_route][v_chan][out_route], route_mask[in_route][v_chan][out_route], 
+          ~out_initial_q[out_route][v_chan] && out_valid[out_route][v_chan], 1'b0)
+      end
+    end
+  end  
 
   for (genvar out_route = 0; out_route < NumOutput; out_route++) begin : gen_output
 

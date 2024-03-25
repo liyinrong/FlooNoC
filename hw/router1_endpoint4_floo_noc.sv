@@ -81,8 +81,8 @@ floo_wide_t cluster4_ni_to_router_wide;
 
 
 floo_narrow_wide_chimney  #(
-  .EnNarrowSbrPort(1'b1),
-  .EnNarrowMgrPort(1'b1),
+  .EnNarrowSbrPort(1'b0),
+  .EnNarrowMgrPort(1'b0),
   .EnWideSbrPort(1'b1),
   .EnWideMgrPort(1'b1)
 ) cluster1_ni (
@@ -108,8 +108,8 @@ floo_narrow_wide_chimney  #(
 );
 
 floo_narrow_wide_chimney  #(
-  .EnNarrowSbrPort(1'b1),
-  .EnNarrowMgrPort(1'b1),
+  .EnNarrowSbrPort(1'b0),
+  .EnNarrowMgrPort(1'b0),
   .EnWideSbrPort(1'b1),
   .EnWideMgrPort(1'b1)
 ) cluster2_ni (
@@ -135,8 +135,8 @@ floo_narrow_wide_chimney  #(
 );
 
 floo_narrow_wide_chimney  #(
-  .EnNarrowSbrPort(1'b1),
-  .EnNarrowMgrPort(1'b1),
+  .EnNarrowSbrPort(1'b0),
+  .EnNarrowMgrPort(1'b0),
   .EnWideSbrPort(1'b1),
   .EnWideMgrPort(1'b1)
 ) cluster3_ni (
@@ -162,8 +162,8 @@ floo_narrow_wide_chimney  #(
 );
 
 floo_narrow_wide_chimney  #(
-  .EnNarrowSbrPort(1'b1),
-  .EnNarrowMgrPort(1'b1),
+  .EnNarrowSbrPort(1'b0),
+  .EnNarrowMgrPort(1'b0),
   .EnWideSbrPort(1'b1),
   .EnWideMgrPort(1'b1)
 ) cluster4_ni (
@@ -234,6 +234,7 @@ floo_narrow_wide_router #(
   .ChannelFifoDepth (2),
   .OutputFifoDepth (2),
   .RouteAlgo (XYRouting),
+  .XYRouteOpt      (1'b0),
   .id_t(id_t)
 ) router (
   .clk_i,

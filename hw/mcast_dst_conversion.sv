@@ -5,24 +5,25 @@ module mcast_dst_conversion
   parameter int unsigned NumRoutes = 0
   // parameter int unsigned NumDst = 1
 ) (
-  input mask_id_t mask_i,
+  input select_t mask_i,
   input id_t xy_id_i,
+  input id_t src_id_i,
   // output id_t [NumDst-1:0] dst_o,
   output logic [NumRoutes-1:0] route_sel_o
   // output logic [NumDst-1:0][4:0] routes_onehot_o,
   // output logic [NumDst-1:0]
 );
 
-  logic [1:0] cnt = '0, dst_cnt = '0, res_cnt = '0;
-  logic op_flag = 1'b1;
+  // logic [1:0] cnt = '0, dst_cnt = '0, res_cnt = '0;
+  // logic op_flag = 1'b1;
   // logic [1:0] NumDst = 0;
   // assign NumDst = $countones(mask_i);
-  id_t [3:0] id_in_mcast;
-  logic [3:0][NumRoutes-1:0] routes = '0;
-  id_t [4:0] id_lut = '{
-    '{x: 0, y: 0},
-  	'{x: 0, y: 1},
-  	'{x: 1, y: 0}, 
+  id_t [SamNumRules-1:0] id_in_mcast;
+  logic [SamNumRules-1:0][NumRoutes-1:0] routes;
+  id_t [SamNumRules:0] id_lut = '{
+    '{x: 0, y: 0}, // idle position
+    '{x: 0, y: 1},
+  	'{x: 1, y: 0},
   	'{x: 2, y: 1}, 
   	'{x: 1, y: 2}
   };
@@ -31,7 +32,6 @@ module mcast_dst_conversion
   // assign dst_o = id_in_mcast;
   // assign route_sel_o = route_sel
   assign route_sel_o = routes[3] | routes[2] | routes[1] | routes[0];
-
   // always_comb begin
   // 	if (mask_i[cnt] && op_flag) begin
   // 		id_in_mcast[dst_cnt] = id_lut[cnt];
@@ -44,10 +44,11 @@ module mcast_dst_conversion
   //   	op_flag = 1'b0;
   //   end
   // end
-  for (genvar i = 0; i < 4; i++) begin
+  for (genvar i = 0; i < SamNumRules; i++) begin
     always_comb begin
-      id_in_mcast[i] = (mask_i[i]) ? id_lut[i] : id_lut[4];
-      if (mask_i[i]) begin
+      id_in_mcast[i] = (mask_i[i]) ? id_lut[i] : id_lut[SamNumRules];
+      routes[i] = '0;
+      if (mask_i[i] && (id_in_mcast[i] != src_id_i)) begin
         if (id_in_mcast[i] == xy_id_i) begin
           routes[i][Eject] = 1'b1;
           // routes_onehot_o[i] = 5'b00001;

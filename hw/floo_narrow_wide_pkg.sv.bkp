@@ -133,7 +133,7 @@ package floo_narrow_wide_pkg;
   /////////////////////
 
   typedef struct packed {
-    id_t idx;
+    id_t unsigned idx;
     logic [47:0] start_addr;
     logic [47:0] end_addr;
   } addr_map_rule_t;
@@ -149,6 +149,35 @@ package floo_narrow_wide_pkg;
       '{idx: '{x: 1, y: 1}, start_addr: 48'h0000100c0000, end_addr: 48'h000010100000},
       '{idx: '{x: 1, y: 2}, start_addr: 48'h000010140000, end_addr: 48'h000010180000},
       '{idx: '{x: 1, y: 3}, start_addr: 48'h0000101c0000, end_addr: 48'h000010200000}
+  };
+
+  typedef struct packed {
+    int idx;
+    logic [47:0] addr;
+    logic [47:0] mask; 
+  } mask_rule_t;
+
+  localparam mask_rule_t [SamNumRules-1:0] SamMask = '{
+      '{
+         idx: 0,
+         addr: 48'h000000000000,
+         mask: 48'h000000003fff
+      },  // cluster1_ni
+      '{
+          idx: 1,
+          addr: 48'h000000004000,
+          mask: 48'h000000003fff
+      },  // cluster2_ni
+      '{
+          idx: 2,
+          addr: 48'h000000008000,
+          mask: 48'h000000003fff
+      },  // cluster3_ni
+      '{
+          idx: 3,
+          addr: 48'h00000000c000,
+          mask: 48'h000000003fff
+      }  // cluster4_ni
   };
 
 
