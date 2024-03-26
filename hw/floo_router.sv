@@ -149,16 +149,18 @@ module floo_router import floo_pkg::*; #(
   typedef enum logic [1:0] {
     Idle = 2'b00,
     ValidInput = 2'b01,
-    PartialHS = 2'b10
-    // CompleteHS = 2'b11
+    PartialHS = 2'b10,
+    TogetherHS = 2'b11
   } fsm_e;
 
   logic  [NumInput-1:0][NumVirtChannels-1:0][NumOutput-1:0] hs_flag_d, hs_flag_q; //handshake flags.
-  logic  [NumInput-1:0][NumVirtChannels-1:0] ready_monitor;
+  logic  [NumInput-1:0][NumVirtChannels-1:0] ready_monitor, all_ready_same_cycle;
   fsm_e  [NumInput-1:0][NumVirtChannels-1:0] hs_state_d, hs_state_q;
+  logic  [NumOutput-1:0][NumVirtChannels-1:0] out_port_state_d, out_port_state_q; //0: idle, 1: busy.
   `FF(hs_state_q, hs_state_d, '0)
   `FF(hs_flag_q, hs_flag_d, '0)
   `FF(masked_all_ready_q, masked_all_ready, '0)
+  `FF(out_port_state_q, out_port_state_d, '0)
 
   // Multicast Handshake FSM Logic
   for (genvar in_route = 0; in_route < NumInput; in_route++) begin : gen_hs_input_mcast
@@ -171,6 +173,7 @@ module floo_router import floo_pkg::*; #(
       assign mcast_flag[in_route][v_chan] = in_data[in_route][v_chan].hdr.mcast_flag;
       assign all_hs_complete[in_route][v_chan] = &(hs_flag_d[in_route][v_chan] | ~route_mask_q[in_route][v_chan]);
       assign ready_monitor[in_route][v_chan] = |(masked_all_ready[in_route][v_chan] & route_mask[in_route][v_chan]);
+      assign all_ready_same_cycle[in_route][v_chan] = &(masked_all_ready[in_route][v_chan] | ~route_mask[in_route][v_chan]);
       
       always_comb begin // Now we consume in_valid keeps asserted until it finishes the handshake and then waits for the next data.
         if (hs_state_q[in_route][v_chan] == Idle) begin
@@ -182,6 +185,8 @@ module floo_router import floo_pkg::*; #(
             hs_state_d[in_route][v_chan] = ValidInput;
           end else if (in_valid[in_route][v_chan] && ready_monitor[in_route][v_chan]) begin
             hs_state_d[in_route][v_chan] = PartialHS;
+          // end else if (in_valid[in_route][v_chan] && ready_monitor[in_route][v_chan] && all_ready_same_cycle[in_route][v_chan]) begin
+          //   hs_state_d[in_route][v_chan] = TogetherHS;
           end else begin
             hs_state_d[in_route][v_chan] = Idle;
           end
@@ -190,9 +195,11 @@ module floo_router import floo_pkg::*; #(
           masked_valid_mcast[in_route][v_chan] = '1 & route_mask[in_route][v_chan]; //route_mask_q? Now route_mask and mcast_flag change at the same cycle (with in_data), while the last packet has not been transmitted.
           if (~|(all_mcast_flag_q[in_route][v_chan] & route_mask_q[in_route][v_chan])) begin
             hs_state_d[in_route][v_chan] = Idle;
-          end else if (in_valid[in_route][v_chan] && ready_monitor[in_route][v_chan]) begin
+          end else if (in_valid[in_route][v_chan] && ready_monitor[in_route][v_chan])  begin
             hs_state_d[in_route][v_chan] = PartialHS;
-          end else if (in_valid[in_route][v_chan] && ~ready_monitor[in_route][v_chan]) begin
+          // end else if (in_valid[in_route][v_chan] && ready_monitor[in_route][v_chan] && all_ready_same_cycle[in_route][v_chan]) begin
+          //   hs_state_d[in_route][v_chan] = TogetherHS;
+          end else if (in_valid[in_route][v_chan] && ~ready_monitor[in_route][v_chan])  begin
             hs_state_d[in_route][v_chan] = ValidInput;
           end else begin
             hs_state_d[in_route][v_chan] = Idle;
@@ -202,13 +209,21 @@ module floo_router import floo_pkg::*; #(
           masked_valid_mcast[in_route][v_chan] = ~hs_flag_d[in_route][v_chan] & route_mask_q[in_route][v_chan];
           if (~|(all_mcast_flag_q[in_route][v_chan] & route_mask_q[in_route][v_chan])) begin
             hs_state_d[in_route][v_chan] = Idle;
-          end else if (in_valid[in_route][v_chan] && all_hs_complete[in_route][v_chan]) begin
-            hs_state_d[in_route][v_chan] = ValidInput;
           end else if (in_valid[in_route][v_chan] && ~all_hs_complete[in_route][v_chan]) begin
             hs_state_d[in_route][v_chan] = PartialHS;
+          end else if (in_valid[in_route][v_chan] && all_hs_complete[in_route][v_chan] && out_port_state_q) begin
+            hs_state_d[in_route][v_chan] = ValidInput;
           end else begin
             hs_state_d[in_route][v_chan] = Idle;
           end
+        // end else if (hs_state_q[in_route][v_chan] == TogetherHS) begin
+        //   hs_flag_d[in_route][v_chan] = '1;
+        //   masked_valid_mcast[in_route][v_chan] = '0;
+        //   if (in_valid[in_route][v_chan]) begin
+        //     hs_state_d[in_route][v_chan] = ValidInput;
+        //   end else begin
+        //     hs_state_d[in_route][v_chan] = Idle;
+        //   end
         end
       end
     end
@@ -217,27 +232,25 @@ module floo_router import floo_pkg::*; #(
   flit_t [NumOutput-1:0][NumVirtChannels-1:0] out_data, out_buffered_data; 
   logic  [NumOutput-1:0][NumVirtChannels-1:0] out_valid, out_ready;
   logic  [NumOutput-1:0][NumVirtChannels-1:0] out_buffered_valid, out_buffered_ready;
-  logic  [NumOutput-1:0][NumVirtChannels-1:0] out_initial_d, out_initial_q;
-  `FF(out_initial_q, out_initial_d, '0)
-  // logic  [NumOutput-1:0] unicast_end;
+  // logic  [NumOutput-1:0][NumVirtChannels-1:0] out_initial_d, out_initial_q;
+  // // logic  [NumOutput-1:0] unicast_end;
 
   for (genvar out_route = 0; out_route < NumOutput; out_route++) begin
     for (genvar v_chan = 0; v_chan < NumVirtChannels; v_chan++) begin
       // assign out_last[out_route][v_chan] = out_buffered_data[out_route][v_chan].hdr.last;
       // `FFL(out_initial[out_route][v_chan], 1'b1, out_buffered_valid[out_route][v_chan], 1'b0)
       always_comb begin
-        // out_initial_d[out_route][v_chan] = 1'b0;
-        if (~out_initial_q[out_route][v_chan]) begin
+        if (~out_port_state_q[out_route][v_chan]) begin // idle
           if (out_valid[out_route][v_chan]) begin
-            out_initial_d[out_route][v_chan] = 1'b1;
+            out_port_state_d[out_route][v_chan] = 1'b1; // switch to busy
           end else begin
-            out_initial_d[out_route][v_chan] = 1'b0;
+            out_port_state_d[out_route][v_chan] = 1'b0;
           end
-        end else begin
-          if (out_data[out_route][v_chan].hdr.last) begin
-            out_initial_d[out_route][v_chan] = 1'b0;
+        end else begin // busy
+          if (out_data[out_route][v_chan].hdr.last && out_ready[out_route][v_chan]) begin
+            out_port_state_d[out_route][v_chan] = 1'b0; // switch to idle
           end else begin
-            out_initial_d[out_route][v_chan] = 1'b1;
+            out_port_state_d[out_route][v_chan] = 1'b1;
           end
         end
       end
@@ -253,10 +266,16 @@ module floo_router import floo_pkg::*; #(
         // `FFL(route_mask_q[in_route][v_chan][out_route], route_mask[in_route][v_chan][out_route], (out_initial_q[out_route][v_chan] && 
         //   out_buffered_ready[out_route][v_chan] && out_buffered_valid[out_route][v_chan] && out_buffered_data[out_route][v_chan].hdr.last) || 
         //   (~out_initial[out_route][v_chan] && out_buffered_valid[out_route][v_chan]), 1'b0)
-        `FFL(all_mcast_flag_q[in_route][v_chan][out_route], mcast_flag[in_route][v_chan],  
-          ~out_initial_q[out_route][v_chan] && out_valid[out_route][v_chan], 1'b0)
-        `FFL(route_mask_q[in_route][v_chan][out_route], route_mask[in_route][v_chan][out_route], 
-          ~out_initial_q[out_route][v_chan] && out_valid[out_route][v_chan], 1'b0)
+
+        // `FFL(all_mcast_flag_q[in_route][v_chan][out_route], mcast_flag[in_route][v_chan],  
+        //   ~out_initial_q[out_route][v_chan] && out_valid[out_route][v_chan], 1'b0)
+        // `FFL(route_mask_q[in_route][v_chan][out_route], route_mask[in_route][v_chan][out_route], 
+        //   ~out_initial_q[out_route][v_chan] && out_valid[out_route][v_chan], 1'b0)
+
+        `FFL(all_mcast_flag_q[in_route][v_chan][out_route], mcast_flag[in_route][v_chan], (!out_port_state_q[out_route][v_chan]) ||
+          (out_data[out_route][v_chan].hdr.last && out_ready[out_route][v_chan]), 1'b0)
+        `FFL(route_mask_q[in_route][v_chan][out_route], route_mask[in_route][v_chan][out_route], (!out_port_state_q[out_route][v_chan]) ||
+          (out_data[out_route][v_chan].hdr.last && out_ready[out_route][v_chan]), 1'b0)
       end
     end
   end  
