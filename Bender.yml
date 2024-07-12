@@ -35,6 +35,7 @@ sources:
   - hw/floo_rob.sv
   - hw/floo_rob_wrapper.sv
   - hw/floo_meta_buffer.sv
+  - hw/axi_mcast_demux_id_counters.sv
   # Level 2
   - hw/floo_narrow_wide_join.sv
   - hw/floo_axi_chimney.sv
@@ -43,6 +44,7 @@ sources:
   - hw/floo_narrow_wide_router.sv
   - hw/mcast_dst_conversion.sv
   - hw/router1_endpoint4_floo_noc.sv
+  - hw/mcast_mesh_floo_noc.sv
 
   - target: test
     include_dirs:
@@ -67,6 +69,7 @@ sources:
       - hw/tb/tb_floo_dma_nw_chimney.sv
       - hw/tb/tb_floo_dma_mesh.sv
       - hw/tb/tb_r1e4.sv
+      - hw/tb/tb_floo_mcast_mesh.sv
 
   - target: any(synthesis,spyglass)
     files:
