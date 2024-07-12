@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-name: occamy_mesh
+name: mcast_mesh
 description: "Occamy mesh configuration for FlooGen"
 
 routing:
@@ -16,35 +16,35 @@ protocols:
     data_width: 64
     addr_width: 48
     id_width: 4
-    user_width: 1
+    user_width: 48
   - name: "narrow"
     type: "AXI4"
     direction: "subordinate"
     data_width: 64
     addr_width: 48
     id_width: 2
-    user_width: 1
+    user_width: 48
   - name: "wide"
     type: "AXI4"
     direction: "manager"
     data_width: 512
     addr_width: 48
     id_width: 3
-    user_width: 1
+    user_width: 48
   - name: "wide"
     type: "AXI4"
     direction: "subordinate"
     data_width: 512
     addr_width: 48
     id_width: 1
-    user_width: 1
+    user_width: 48
 
 endpoints:
   - name: "cluster"
-    array: [2, 4]
+    array: [4, 4]
     addr_range:
       base: 0x0000_1000_0000
-      size: 0x0000_0004_0000
+      size: 0x0000_1000_0000
     mgr_port_protocol:
       - "narrow"
       - "wide"
@@ -79,12 +79,12 @@ endpoints:
   #   id_offset:
   #     x: 0
   #     y: -1
-  - name: "cva6"
-    mgr_port_protocol:
-      - "narrow"
-    id_offset:
-      x: 0
-      y: 8
+  # - name: "cva6"
+  #   mgr_port_protocol:
+  #     - "narrow"
+  #   id_offset:
+  #     x: 0
+  #     y: 8
   # - name: "peripherals"
   #   addr_range:
   #     start: 0x0000_0000_0000
@@ -99,16 +99,16 @@ endpoints:
 
 routers:
   - name: "router"
-    array: [2, 4]
+    array: [4, 4]
 
 connections:
   - src: "cluster"
     dst: "router"
     src_range:
-    - [0, 1]
+    - [0, 3]
     - [0, 3]
     dst_range:
-    - [0, 1]
+    - [0, 3]
     - [0, 3]
     bidirectional: true
   # - src: "hbm"
@@ -129,10 +129,10 @@ connections:
   #   - [0, 2]
   #   - [0, 0]
   #   bidirectional: true
-  - src: "cva6"
-    dst: "router"
-    dst_idx: [0, 3]
-    bidirectional: true
+  # - src: "cva6"
+  #   dst: "router"
+  #   dst_idx: [0, 3]
+  #   bidirectional: true
     # allow_multi: true
   # - src: "peripherals"
   #   dst: "router"
