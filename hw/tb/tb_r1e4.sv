@@ -67,10 +67,6 @@ module tb_r1e4;
     logic [AxiNarrowInAddrWidth-1:0] end_addr;
   } node_addr_region_t;
 
-  localparam int unsigned NumAddrRegions = 1;
-  localparam node_addr_region_t [NumAddrRegions-1:0] AddrRegions = '{
-    '{start_addr: 48'h000_0000_0000, end_addr: 48'h000_0000_8000}
-  };
 
   typedef struct packed {
     id_t idx;
@@ -79,12 +75,59 @@ module tb_r1e4;
   } node_addr_region_id_t;
 
   node_addr_region_id_t [NumNI-1:0] node_addr_regions;
+  // assign node_addr_regions = '{
+	// '{idx: '{x: 1, y: 2}, start_addr: 48'h000010000000, end_addr: 48'h000010003fff},
+	// '{idx: '{x: 2, y: 1}, start_addr: 48'h000010004000, end_addr: 48'h000010007fff},
+	// '{idx: '{x: 1, y: 0}, start_addr: 48'h000010008000, end_addr: 48'h00001000bfff},
+	// '{idx: '{x: 0, y: 1}, start_addr: 48'h00001000c000, end_addr: 48'h000010010000}
+  // };
   assign node_addr_regions = '{
-	'{idx: '{x: 1, y: 2}, start_addr: 48'h000010000000, end_addr: 48'h000010003fff},
-	'{idx: '{x: 2, y: 1}, start_addr: 48'h000010004000, end_addr: 48'h000010007fff},
-	'{idx: '{x: 1, y: 0}, start_addr: 48'h000010008000, end_addr: 48'h00001000bfff},
-	'{idx: '{x: 0, y: 1}, start_addr: 48'h00001000c000, end_addr: 48'h000010010000}
-  };
+      '{
+          idx: '{x: 1, y: 2},
+          start_addr: 48'h0000_0000_0000,
+          end_addr: 48'h0000_0fff_ffff
+      },  // cluster1_ni
+      '{
+          idx: '{x: 2, y: 1},
+          start_addr: 48'h0000_1000_0000,
+          end_addr: 48'h0000_1fff_ffff
+      },  // cluster2_ni
+      '{
+          idx: '{x: 1, y: 0},
+          start_addr: 48'h0000_2000_0000,
+          end_addr: 48'h0000_2fff_ffff
+      },  // cluster3_ni
+      '{
+          idx: '{x: 0, y: 1},
+          start_addr: 48'h0000_3000_0000,
+          end_addr: 48'h0000_3fff_ffff
+      }  // cluster4_ni
+
+  };  
+
+	localparam int unsigned NumAddrRegions = NumNI-1;
+	localparam node_addr_region_t [NumNI-1:0][NumAddrRegions-1:0] AddrsExcludeSelf = '{
+	  '{
+       '{start_addr: 48'h0000_2000_0000, end_addr: 48'h0000_2fff_ffff},
+       '{start_addr: 48'h0000_1000_0000, end_addr: 48'h0000_1fff_ffff},
+       '{start_addr: 48'h0000_0000_0000, end_addr: 48'h0000_0fff_ffff}
+	  },
+	  '{
+       '{start_addr: 48'h0000_3000_0000, end_addr: 48'h0000_3fff_ffff},
+       '{start_addr: 48'h0000_1000_0000, end_addr: 48'h0000_1fff_ffff},
+       '{start_addr: 48'h0000_0000_0000, end_addr: 48'h0000_0fff_ffff}
+	  },
+	  '{
+       '{start_addr: 48'h0000_3000_0000, end_addr: 48'h0000_3fff_ffff},
+       '{start_addr: 48'h0000_2000_0000, end_addr: 48'h0000_2fff_ffff},
+       '{start_addr: 48'h0000_0000_0000, end_addr: 48'h0000_0fff_ffff}
+	  },
+	  '{
+       '{start_addr: 48'h0000_3000_0000, end_addr: 48'h0000_3fff_ffff},
+       '{start_addr: 48'h0000_2000_0000, end_addr: 48'h0000_2fff_ffff},
+       '{start_addr: 48'h0000_1000_0000, end_addr: 48'h0000_1fff_ffff}
+	  }
+	};
 
   router1_endpoint4_floo_noc i_dut (
   	.clk_i                (clk),
@@ -124,7 +167,20 @@ module tb_r1e4;
   	.cluster4_wide_rsp_i  (wide_sub_rsp[3])   
   );
 
+
   for (genvar i = 0; i < NumNI; i++) begin : testnode_generation
+
+  	// localparam int unsigned NumAddrRegions = NumNI-1;
+  	// localparam node_addr_region_t [NumAddrRegions-1:0] AddrsExcludeSelf = '0;
+
+  	// for (genvar j = 0; j < NumAddrRegions; j++) begin
+  	// 	localparam int unsigned cnt = (j < i) ? j : j+1;
+  	// 	// always_comb begin
+  	// 	assign	AddrsExcludeSelf[j].start_addr = node_addr_regions[cnt].start_addr;
+  	// 	assign 	AddrsExcludeSelf[j].end_addr = node_addr_regions[cnt].end_addr;
+  	// 	// end
+  	// end
+
 	  floo_axi_test_node #(
 	    .AxiAddrWidth   ( AxiNarrowInAddrWidth  ),
 	    .AxiDataWidth   ( AxiNarrowInDataWidth  ),
@@ -141,7 +197,7 @@ module tb_r1e4;
 	    .AxiMaxBurstLen ( ReorderBufferSize     ),
 	    .NumAddrRegions ( NumAddrRegions        ),
 	    .rule_t         ( node_addr_region_t    ),
-	    .AddrRegions    ( AddrRegions           ),
+	    .AddrRegions    ( AddrsExcludeSelf[i]      ),
 	    .NumReads       ( NarrowNumReads        ),
 	    .NumWrites      ( NarrowNumWrites       )
 	  ) i_narrow_test_node (
@@ -170,7 +226,7 @@ module tb_r1e4;
 	    .AxiMaxBurstLen ( ReorderBufferSize   ),
 	    .NumAddrRegions ( NumAddrRegions      ),
 	    .rule_t         ( node_addr_region_t  ),
-	    .AddrRegions    ( AddrRegions         ),
+	    .AddrRegions    ( AddrsExcludeSelf[i]    ),
 	    .NumReads       ( WideNumReads        ),
 	    .NumWrites      ( WideNumWrites       )
 	  ) i_wide_test_node (
