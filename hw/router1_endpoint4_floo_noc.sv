@@ -84,7 +84,15 @@ floo_narrow_wide_chimney  #(
   .EnNarrowSbrPort(1'b1),
   .EnNarrowMgrPort(1'b1),
   .EnWideSbrPort(1'b1),
-  .EnWideMgrPort(1'b1)
+  .EnWideMgrPort(1'b1),
+  .TileNameNarrowIn("ni_narrow_in_1"),
+  .TileNameNarrowOut("ni_narrow_out_1"),
+  .TileNameWideIn("ni_wide_in_1"),
+  .TileNameWideOut("ni_wide_out_1"),
+  .WideInAW("wide_in_aw_1"),
+  .WideInB("wide_in_b_1"),
+  .WideInAR("wide_in_ar_1"),
+  .WideInR("wide_in_r_1")
 ) cluster1_ni (
   .clk_i,
   .rst_ni,
@@ -111,7 +119,15 @@ floo_narrow_wide_chimney  #(
   .EnNarrowSbrPort(1'b1),
   .EnNarrowMgrPort(1'b1),
   .EnWideSbrPort(1'b1),
-  .EnWideMgrPort(1'b1)
+  .EnWideMgrPort(1'b1),
+  .TileNameNarrowIn("ni_narrow_in_2"),
+  .TileNameNarrowOut("ni_narrow_out_2"),
+  .TileNameWideIn("ni_wide_in_2"),
+  .TileNameWideOut("ni_wide_out_2"),
+  .WideInAW("wide_in_aw_2"),
+  .WideInB("wide_in_b_2"),
+  .WideInAR("wide_in_ar_2"),
+  .WideInR("wide_in_r_2")
 ) cluster2_ni (
   .clk_i,
   .rst_ni,
@@ -125,7 +141,7 @@ floo_narrow_wide_chimney  #(
   .axi_wide_in_rsp_o  ( cluster2_wide_rsp_o ),
   .axi_wide_out_req_o ( cluster2_wide_req_o ),
   .axi_wide_out_rsp_i ( cluster2_wide_rsp_i ),
-  .id_i             ( '{x: 2, y: 1}    ),
+  .id_i             ( '{x: 2, y: 1}   ),
   .floo_req_o       ( cluster2_ni_to_router_req   ),
   .floo_rsp_i       ( router_to_cluster2_ni_rsp   ),
   .floo_wide_o      ( cluster2_ni_to_router_wide  ),
@@ -138,7 +154,15 @@ floo_narrow_wide_chimney  #(
   .EnNarrowSbrPort(1'b1),
   .EnNarrowMgrPort(1'b1),
   .EnWideSbrPort(1'b1),
-  .EnWideMgrPort(1'b1)
+  .EnWideMgrPort(1'b1),
+  .TileNameNarrowIn("ni_narrow_in_3"),
+  .TileNameNarrowOut("ni_narrow_out_3"),
+  .TileNameWideIn("ni_wide_in_3"),
+  .TileNameWideOut("ni_wide_out_3"),
+  .WideInAW("wide_in_aw_3"),
+  .WideInB("wide_in_b_3"),
+  .WideInAR("wide_in_ar_3"),
+  .WideInR("wide_in_r_3")
 ) cluster3_ni (
   .clk_i,
   .rst_ni,
@@ -165,7 +189,15 @@ floo_narrow_wide_chimney  #(
   .EnNarrowSbrPort(1'b1),
   .EnNarrowMgrPort(1'b1),
   .EnWideSbrPort(1'b1),
-  .EnWideMgrPort(1'b1)
+  .EnWideMgrPort(1'b1),
+  .TileNameNarrowIn("ni_narrow_in_4"),
+  .TileNameNarrowOut("ni_narrow_out_4"),
+  .TileNameWideIn("ni_wide_in_4"),
+  .TileNameWideOut("ni_wide_out_4"),
+  .WideInAW("wide_in_aw_4"),
+  .WideInB("wide_in_b_4"),
+  .WideInAR("wide_in_ar_4"),
+  .WideInR("wide_in_r_4")
 ) cluster4_ni (
   .clk_i,
   .rst_ni,
@@ -229,6 +261,8 @@ floo_wide_t [NumDirections-1:0] router_wide_out;
   assign router_to_cluster3_ni_wide = router_wide_out[South];
   assign router_to_cluster4_ni_wide = router_wide_out[West];
 
+id_t rt_pos = '{x: 1, y: 1};
+
 floo_narrow_wide_router #(
   .NumRoutes (NumDirections),
   .ChannelFifoDepth (2),
@@ -240,7 +274,7 @@ floo_narrow_wide_router #(
   .clk_i,
   .rst_ni,
   .test_enable_i,
-  .id_i ('{x: 1, y: 1}),
+  .id_i (rt_pos),
   .id_route_map_i ('0),
   .floo_req_i (router_req_in),
   .floo_rsp_o (router_rsp_out),

@@ -6,9 +6,13 @@
 
 `include "common_cells/registers.svh"
 
-module floo_route_select import floo_pkg::*;
+module floo_route_select 
+  import floo_pkg::*;
+  import floo_narrow_wide_pkg::*;
  #(
   parameter int unsigned NumRoutes     = 0,
+  // parameter int unsigned NumVirtChannels  = 0,
+  // parameter int unsigned NumInput         = NumRoutes,
   parameter type         flit_t        = logic,
   parameter route_algo_e RouteAlgo     = IdTable,
   parameter bit          LockRouting   = 1'b1,
@@ -33,9 +37,9 @@ module floo_route_select import floo_pkg::*;
   input  flit_t                         channel_i,
   input  logic                          valid_i,
   input  logic                          ready_i,
-  output flit_t                         channel_o,
-  output logic       [NumRoutes-1:0]    route_sel_o // One-hot route (unicast), for multicast this is not one-hot.
-  // output logic       [NumDst-1:0][4:0]  routes_onehot_o
+  output flit_t      [NumRoutes-1:0]    channel_o,
+  output logic       [NumRoutes-1:0]    route_sel_o, // One-hot route (unicast), for multicast this is not one-hot.
+  output logic [$clog2(NumRoutes)-1:0]  rep_coeff_o
 );
 
   logic [NumRoutes-1:0] route_sel, route_sel_mcast, route_res;
@@ -47,10 +51,13 @@ module floo_route_select import floo_pkg::*;
   if (RouteAlgo == IdIsPort) begin : gen_id_is_port
     // Routing assuming the ID is the port to be taken
 
-    assign channel_o = channel_i;
+    for (genvar out_route=0; out_route<NumRoutes; out_route++) begin
+      assign channel_o[out_route] = channel_i;
+    end
 
     // One-hot encoding of the decoded route
     always_comb begin : proc_route_sel
+      rep_coeff_o = '0;
       route_sel = '0;
       // if (channel_i.hdr.mcast_flag) begin
       //   route_sel 
@@ -67,8 +74,10 @@ module floo_route_select import floo_pkg::*;
     typedef logic [$clog2(NumRoutes)-1:0] out_id_t;
     out_id_t out_id;
 
-    assign channel_o = channel_i;
-
+    for (genvar out_route=0; out_route<NumRoutes; out_route++) begin
+      assign channel_o[out_route] = channel_i;
+    end
+    
     addr_decode #(
       .NoIndices ( NumRoutes    ),
       .NoRules   ( NumAddrRules ),
@@ -87,6 +96,7 @@ module floo_route_select import floo_pkg::*;
 
     // One-hot encoding of the decoded route
     always_comb begin : proc_route_sel
+      rep_coeff_o = '0;
       route_sel = '0;
       route_sel[out_id] = 1'b1;
     end
@@ -94,10 +104,13 @@ module floo_route_select import floo_pkg::*;
   end else if (RouteAlgo == SourceRouting) begin : gen_consumption
     // Routing based on a consumable header in the flit
     always_comb begin : proc_route_sel
+      rep_coeff_o = '0;
       route_sel = '0;
       route_sel[channel_i.hdr.dst_id[RouteSelWidth-1:0]] = 1'b1;
-      channel_o = channel_i;
-      channel_o.hdr.dst_id = channel_i.hdr.dst_id >> RouteSelWidth;
+      for (int unsigned out_route=0; out_route<NumRoutes; out_route++) begin
+        channel_o[out_route] = channel_i;
+        channel_o[out_route].hdr.dst_id = channel_i.hdr.dst_id >> RouteSelWidth;
+      end      
     end
 
   end else if (RouteAlgo == XYRouting) begin : gen_xy_routing
@@ -129,9 +142,19 @@ module floo_route_select import floo_pkg::*;
       .route_sel_o(route_sel_mcast)
     );
 
+    always_comb begin
+      rep_coeff_o = '0;
+      for (int unsigned out_route = 0; out_route < NumRoutes; out_route++) begin
+        rep_coeff_o += route_sel_mcast[out_route];
+      end
+    end
+
     always_comb begin : proc_route_sel
       route_sel = '0;
-      if (id_in == xy_id_i) begin
+      // if (id_in.x=='0 && id_in.y=='0) begin
+      if (~valid_i) begin
+        route_sel = '0;
+      end else if (id_in == xy_id_i) begin
         route_sel[Eject] = 1'b1;
       end else if (id_in.x == xy_id_i.x) begin
         if (id_in.y < xy_id_i.y) begin
@@ -146,9 +169,34 @@ module floo_route_select import floo_pkg::*;
           route_sel[East] = 1'b1;
         end
       end            
-    end      
+    end
 
-    assign channel_o = channel_i;
+    // logic [NumXEP-1:0][SamNumRules-1:0] x_axis_mask = '0;
+    // for (genvar x = 0; x < NumXEP; x++) begin
+    //   always_comb begin
+    //     x_axis_mask[x][(x+1)*NumYEP-1:x*NumYEP] = '1;
+    //   end
+    // end 
+
+
+    // for (genvar out_route = 0; out_route < NumRoutes; out_route++) begin
+    //   always_comb begin : flit_replication  
+    //     if (rep_coeff_o <= 1'b1 || out_route==Eject) begin
+    //       channel_o[out_route] = channel_i;
+    //     end else begin
+    //       channel_o[out_route] = channel_i;
+    //       if (out_route==North || out_route==South) begin
+    //         channel_o[out_route].hdr.dst_mask_id = channel_i.hdr.dst_mask_id & x_axis_mask[xy_id_i.x];
+    //       end else begin
+    //         channel_o[out_route].hdr.dst_mask_id = channel_i.hdr.dst_mask_id & ~x_axis_mask[xy_id_i.x];
+    //       end
+    //     end
+    //   end
+    // end      
+
+    for (genvar out_route=0; out_route<NumRoutes; out_route++) begin
+      assign channel_o[out_route] = channel_i;
+    end
 
   end else begin : gen_err
     // Unknown or unimplemented routing otherwise

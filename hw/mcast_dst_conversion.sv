@@ -31,6 +31,10 @@ module mcast_dst_conversion
   // logic [3:0][NumRoutes-1:0] ids;
   // assign dst_o = id_in_mcast;
   // assign route_sel_o = route_sel
+  // assign route_sel_o = routes[15] | routes[14] | routes[13] | routes[12] |
+  //                      routes[11] | routes[10] | routes[9] | routes[8] |
+  //                      routes[7] | routes[6] | routes[5] | routes[4] |
+  //                      routes[3] | routes[2] | routes[1] | routes[0];
   assign route_sel_o = routes[3] | routes[2] | routes[1] | routes[0];
   // always_comb begin
   // 	if (mask_i[cnt] && op_flag) begin
@@ -46,6 +50,7 @@ module mcast_dst_conversion
   // end
   for (genvar i = 0; i < SamNumRules; i++) begin
     always_comb begin
+      // id_in_mcast[i] = (mask_i[i]) ? Sam[SamNumRules-1-i].idx : '{x:0, y:0};
       id_in_mcast[i] = (mask_i[i]) ? id_lut[i] : id_lut[SamNumRules];
       routes[i] = '0;
       if (mask_i[i] && (id_in_mcast[i] != src_id_i)) begin

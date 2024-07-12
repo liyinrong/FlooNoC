@@ -111,7 +111,7 @@ module floo_route_comp
       .default_idx_i    ( '0          )
     );
 
-    `ASSERT(DecodeError, !dec_error)
+      `ASSERT(DecodeError, !dec_error || id_i!='{x:0, y:0})
   end else if (RouteAlgo == XYRouting) begin : gen_xy_bits_routing
     assign id_o.x = addr_i[XYAddrOffsetX +: $bits(id_o.x)];
     assign id_o.y = addr_i[XYAddrOffsetY +: $bits(id_o.y)];

@@ -56,7 +56,15 @@ module floo_narrow_wide_chimney
   /// Type for implementation inputs and outputs
   parameter type sram_cfg_t                      = logic,
   /// Number of routes in the routing table
-  parameter int unsigned NumRoutes               = 5
+  parameter int unsigned NumRoutes               = 5,
+  parameter     TileNameNarrowIn                 = "ni_narrow_in_0",
+  parameter     TileNameNarrowOut                = "ni_narrow_out_0",
+  parameter     TileNameWideIn                   = "ni_wide_in_0",
+  parameter     TileNameWideOut                  = "ni_wide_out_0",
+  parameter     WideInAW                         = "wide_in_aw_0",
+  parameter     WideInB                         = "wide_in_b_0",
+  parameter     WideInAR                         = "wide_in_ar_0",
+  parameter     WideInR                         = "wide_in_r_0"
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -195,6 +203,119 @@ module floo_narrow_wide_chimney
   wide_id_out_buf_t wide_aw_out_data_in, wide_aw_out_data_out;
   wide_id_out_buf_t wide_ar_out_data_in, wide_ar_out_data_out;
 
+  // Log File
+  // axi_dumper #(
+  //   .BusName   (TileNameNarrowIn),
+  //   .LogAW     (1'b1),
+  //   .LogAR     (1'b1),
+  //   .LogW      (1'b0),
+  //   .LogB      (1'b1),
+  //   .LogR      (1'b1),
+  //   .axi_req_t (axi_narrow_in_req_t),
+  //   .axi_resp_t(axi_narrow_in_rsp_t)
+  // ) i_axi_dumper_narrow_in (
+  //   .clk_i     (clk_i),
+  //   .rst_ni    (rst_ni),
+  //   .axi_req_i (axi_narrow_in_req_i),
+  //   .axi_resp_i(axi_narrow_in_rsp_o)
+  // );
+
+  // axi_dumper #(
+  //   .BusName   (TileNameNarrowOut),
+  //   .LogAW     (1'b1),
+  //   .LogAR     (1'b1),
+  //   .LogW      (1'b0),
+  //   .LogB      (1'b1),
+  //   .LogR      (1'b1),
+  //   .axi_req_t (axi_narrow_out_req_t),
+  //   .axi_resp_t(axi_narrow_out_rsp_t)
+  // ) i_axi_dumper_narrow_out (
+  //   .clk_i     (clk_i),
+  //   .rst_ni    (rst_ni),
+  //   .axi_req_i (axi_narrow_out_req_o),
+  //   .axi_resp_i(axi_narrow_out_rsp_i)
+  // );
+
+  axi_dumper #(
+    .BusName   (WideInAW),
+    .LogAW     (1'b1),
+    .LogAR     (1'b0),
+    .LogW      (1'b0),
+    .LogB      (1'b0),
+    .LogR      (1'b0),
+    .axi_req_t (axi_wide_in_req_t),
+    .axi_resp_t(axi_wide_in_rsp_t)
+  ) i_axi_dumper_wide_in_aw (
+    .clk_i     (clk_i),
+    .rst_ni    (rst_ni),
+    .axi_req_i (axi_wide_in_req_i),
+    .axi_resp_i(axi_wide_in_rsp_o)
+  );
+
+  axi_dumper #(
+    .BusName   (WideInB),
+    .LogAW     (1'b0),
+    .LogAR     (1'b0),
+    .LogW      (1'b0),
+    .LogB      (1'b1),
+    .LogR      (1'b0),
+    .axi_req_t (axi_wide_in_req_t),
+    .axi_resp_t(axi_wide_in_rsp_t)
+  ) i_axi_dumper_wide_in_b (
+    .clk_i     (clk_i),
+    .rst_ni    (rst_ni),
+    .axi_req_i (axi_wide_in_req_i),
+    .axi_resp_i(axi_wide_in_rsp_o)
+  );
+
+  axi_dumper #(
+    .BusName   (WideInAR),
+    .LogAW     (1'b0),
+    .LogAR     (1'b1),
+    .LogW      (1'b0),
+    .LogB      (1'b0),
+    .LogR      (1'b0),
+    .axi_req_t (axi_wide_in_req_t),
+    .axi_resp_t(axi_wide_in_rsp_t)
+  ) i_axi_dumper_wide_in_ar (
+    .clk_i     (clk_i),
+    .rst_ni    (rst_ni),
+    .axi_req_i (axi_wide_in_req_i),
+    .axi_resp_i(axi_wide_in_rsp_o)
+  );
+
+  axi_dumper #(
+    .BusName   (WideInR),
+    .LogAW     (1'b0),
+    .LogAR     (1'b0),
+    .LogW      (1'b0),
+    .LogB      (1'b0),
+    .LogR      (1'b1),
+    .axi_req_t (axi_wide_in_req_t),
+    .axi_resp_t(axi_wide_in_rsp_t)
+  ) i_axi_dumper_wide_in_r (
+    .clk_i     (clk_i),
+    .rst_ni    (rst_ni),
+    .axi_req_i (axi_wide_in_req_i),
+    .axi_resp_i(axi_wide_in_rsp_o)
+  );
+
+  // axi_dumper #(
+  //   .BusName   (TileNameWideOut),
+  //   .LogAW     (1'b1),
+  //   .LogAR     (1'b1),
+  //   .LogW      (1'b0),
+  //   .LogB      (1'b1),
+  //   .LogR      (1'b1),
+  //   .axi_req_t (axi_wide_out_req_t),
+  //   .axi_resp_t(axi_wide_out_rsp_t)
+  // ) i_axi_dumper_wide_out (
+  //   .clk_i     (clk_i),
+  //   .rst_ni    (rst_ni),
+  //   .axi_req_i (axi_wide_out_req_o),
+  //   .axi_resp_i(axi_wide_out_rsp_i)
+  // );
+
   ///////////////////////
   //  Spill registers  //
   ///////////////////////
@@ -262,7 +383,7 @@ module floo_narrow_wide_chimney
 
   if (EnWideMgrPort) begin : gen_wide_sbr_port
 
-    assign axi_wide_req_in = axi_wide_in_req_i;
+    assign axi_wide_req_in = axi_wide_in_req_i; // why this.b_ready===0?
     assign axi_wide_in_rsp_o = axi_wide_rsp_out;
 
     if (CutAx) begin : gen_ax_cuts
@@ -426,11 +547,12 @@ module floo_narrow_wide_chimney
 
   logic narrow_mcast_flag, narrow_mcast_flag_q, wide_mcast_flag, wide_mcast_flag_q;
   logic [SamNumRules-1:0] narrow_route_select, wide_route_select, no_use_0, no_use_1, narrow_select_q, wide_select_q; 
-  logic [$clog2(SamNumRules):0] narrow_rep_coeff, wide_rep_coeff, no_use_2, no_use_3;
+  logic [$clog2(SamNumRules):0] narrow_rep_coeff, wide_rep_coeff, no_use_2, no_use_3, narrow_rsp_rep_coeff, wide_rsp_rep_coeff;
 
   // for (genvar d = 0; d < mcast_num_dst; d++) begin : rob_mcast
   floo_rob_wrapper #(
     .RoBType            ( NarrowRoBType           ),
+    .McastBFifo         ( 1'b1                    ),
     .ReorderBufferSize  ( NarrowReorderBufferSize ),
     .MaxRoTxnsPerId     ( NarrowMaxTxnsPerId      ),
     .OnlyMetaData       ( 1'b1                    ),
@@ -480,6 +602,7 @@ module floo_narrow_wide_chimney
 
   floo_rob_wrapper #(
     .RoBType            ( WideRoBType           ),
+    .McastBFifo         ( 1'b1                  ),
     .ReorderBufferSize  ( WideReorderBufferSize ),
     .MaxRoTxnsPerId     ( WideMaxTxnsPerId      ),
     .OnlyMetaData       ( 1'b1                  ),
@@ -542,6 +665,7 @@ module floo_narrow_wide_chimney
 
   floo_rob_wrapper #(
     .RoBType            ( NarrowRoBType           ),
+    .McastBFifo         ( 1'b0                    ),
     .ReorderBufferSize  ( NarrowReorderBufferSize ),
     .MaxRoTxnsPerId     ( NarrowMaxTxnsPerId      ),
     .OnlyMetaData       ( 1'b0                    ),
@@ -553,6 +677,7 @@ module floo_narrow_wide_chimney
     .rsp_meta_t         ( narrow_meta_t           ),
     .rob_idx_t          ( rob_idx_t               ),
     .dest_t             ( id_t                    ),
+    .select_t           ( select_t                ),
     .sram_cfg_t         ( sram_cfg_t              )
   ) i_narrow_r_rob (
     .clk_i,
@@ -590,6 +715,7 @@ module floo_narrow_wide_chimney
 
   floo_rob_wrapper #(
     .RoBType            ( WideRoBType           ),
+    .McastBFifo         ( 1'b0                  ),
     .ReorderBufferSize  ( WideReorderBufferSize ),
     .MaxRoTxnsPerId     ( WideMaxTxnsPerId      ),
     .OnlyMetaData       ( 1'b0                  ),
@@ -601,6 +727,7 @@ module floo_narrow_wide_chimney
     .rsp_meta_t         ( wide_meta_t           ),
     .rob_idx_t          ( rob_idx_t             ),
     .dest_t             ( id_t                  ),
+    .select_t           ( select_t              ),
     .sram_cfg_t         ( sram_cfg_t            )
   ) i_wide_r_rob (
     .clk_i,
@@ -612,9 +739,9 @@ module floo_narrow_wide_chimney
     .ax_id_i        ( axi_wide_ar_queue.id        ),
     .mcast_flag_i   ( 1'b0                        ),
     .ax_dest_i      ( id_out[WideAr]              ),
-    .ax_valid_o     ( wide_ar_rob_valid_out       ),
     .ax_select_i    ( '0                          ),
     .rep_coeff_i    ( 1                           ),
+    .ax_valid_o     ( wide_ar_rob_valid_out       ),
     .ax_ready_i     ( wide_ar_rob_ready_in        ),
     .ax_rob_req_o   ( wide_ar_rob_req_out         ),
     .ax_rob_idx_o   ( wide_ar_rob_idx_out         ),
@@ -639,8 +766,8 @@ module floo_narrow_wide_chimney
   logic narrow_flit_end_flag, wide_flit_end_flag;
 
 
-  assign narrow_mcast_flag = axi_narrow_aw_queue.user != '0;
-  assign wide_mcast_flag = axi_wide_aw_queue.user != '0;
+  assign narrow_mcast_flag = axi_narrow_aw_queue.user != '0 && narrow_rep_coeff>1;
+  assign wide_mcast_flag = axi_wide_aw_queue.user != '0 && wide_rep_coeff>1;
   assign narrow_flit_end_flag = !axi_narrow_req_in.w.last && narrow_last_q;
   assign wide_flit_end_flag = !axi_wide_req_in.w.last && wide_last_q;
 
@@ -665,10 +792,7 @@ module floo_narrow_wide_chimney
     .route_table_i,
     .addr_map_i ( Sam ),
     .mask_map_i ( SamMask ),
-    .id_i   ({
-      narrow_aw_out_data_out.src_id, narrow_ar_out_data_out.src_id,
-      wide_aw_out_data_out.src_id, wide_ar_out_data_out.src_id
-    }),
+    .id_i   ( {id_i, id_i, id_i, id_i} ),
     .addr_i ({
       axi_narrow_aw_queue.addr, axi_narrow_ar_queue.addr,
       axi_wide_aw_queue.addr, axi_wide_ar_queue.addr
@@ -682,6 +806,43 @@ module floo_narrow_wide_chimney
     .select_o ({narrow_route_select, no_use_0, wide_route_select, no_use_1}),
     .rep_coeff_o ({narrow_rep_coeff, no_use_2, wide_rep_coeff, no_use_3})
   );
+
+  // logic [$clog2(SamNumRules):0] narrow_rsp_merge_cnt_d, narrow_rsp_merge_cnt_q;
+  // logic [$clog2(SamNumRules):0] wide_rsp_merge_cnt_d, wide_rsp_merge_cnt_q;
+
+  // fifo_v3 # (
+  //   .DEPTH       (8), // How to set depth?
+  //   .dtype       ([$clog2(SamNumRules):0])
+  // ) i_narrow_nrsp_buffer (
+  //   .clk_i     (clk_i),
+  //   .rst_ni    (rst_ni),
+  //   .flush_i   (1'b0),
+  //   .testmode_i(test_enable_i),
+  //   .full_o    (),
+  //   .empty_o   (),
+  //   .usage_o   (),
+  //   .data_i    (narrow_rep_coeff),
+  //   .push_i    (push_i),
+  //   .data_o    (narrow_rsp_rep_coeff),
+  //   .pop_i     (narrow_rsp_merge_cnt_q==narrow_rsp_rep_coeff)
+  // );
+
+  // fifo_v3 # (
+  //   .DEPTH       (8),
+  //   .dtype       ([$clog2(SamNumRules):0])
+  // ) i_wide_nrsp_buffer (
+  //   .clk_i     (clk_i),
+  //   .rst_ni    (rst_ni),
+  //   .flush_i   (1'b0),
+  //   .testmode_i(test_enable_i),
+  //   .full_o    ()
+  //   .empty_o   (),
+  //   .usage_o   (),
+  //   .data_i    (wide_rep_coeff),
+  //   .push_i    (push_i),
+  //   .data_o    (wide_rsp_rep_coeff),
+  //   .pop_i     (wide_rsp_merge_cnt_q==wide_rsp_rep_coeff)
+  // );
 
   if (RouteAlgo == SourceRouting) begin : gen_route_field
     floo_route_comp #(
