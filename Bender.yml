@@ -71,13 +71,13 @@ sources:
       - hw/tb/tb_r1e4.sv
       - hw/tb/tb_floo_mcast_mesh.sv
 
-  - target: any(synthesis,spyglass)
-    files:
-      # Level 0
-      - hw/test/floo_test_pkg.sv
-      # Level 1
-      - hw/synth/floo_synth_axi_chimney.sv
-      - hw/synth/floo_synth_narrow_wide_chimney.sv
-      - hw/synth/floo_synth_router.sv
-      - hw/synth/floo_synth_narrow_wide_router.sv
-      - hw/synth/floo_synth_endpoint.sv
+  # - target: any(synthesis,spyglass)
+  #   files:
+  #     # Level 0
+  #     - hw/test/floo_test_pkg.sv
+  #     # Level 1
+  #     - hw/synth/floo_synth_axi_chimney.sv
+  #     - hw/synth/floo_synth_narrow_wide_chimney.sv
+  #     - hw/synth/floo_synth_router.sv
+  #     - hw/synth/floo_synth_narrow_wide_router.sv
+  #     - hw/synth/floo_synth_endpoint.sv

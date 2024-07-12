@@ -7,7 +7,7 @@
 
 import pathlib
 from typing import Optional, List, ClassVar
-from importlib import resources
+from importlib.resources import files, as_file
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -24,6 +24,7 @@ from floogen.model.link import NarrowWideLink, XYLinks, NarrowLink
 from floogen.model.network_interface import NarrowWideAxiNI
 from floogen.model.protocol import AXI4, AXI4Bus
 from floogen.utils import clog2
+import floogen.templates
 
 
 class Network(BaseModel):  # pylint: disable=too-many-public-methods
@@ -33,10 +34,10 @@ class Network(BaseModel):  # pylint: disable=too-many-public-methods
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    with resources.path("floogen.templates", "floo_noc_top.sv.mako") as _tpl_path:
+    with as_file(files(floogen.templates).joinpath("floo_noc_top.sv.mako")) as _tpl_path:
         tpl: ClassVar = Template(filename=str(_tpl_path))
 
-    with resources.path("floogen.templates", "floo_flit_pkg.sv.mako") as _tpl_path:
+    with as_file(files(floogen.templates).joinpath("floo_flit_pkg.sv.mako")) as _tpl_path:
         tpl_pkg: ClassVar = Template(filename=str(_tpl_path))
 
     name: str
@@ -430,9 +431,9 @@ class Network(BaseModel):  # pylint: disable=too-many-public-methods
                     ni_dict["addr_range"] = ep_desc.addr_range.model_copy().set_idx(node_idx)
 
                 # 2D array case
-                case (m, _):
+                case (_, n):
                     x, y = self.graph.get_node_arr_idx(ni_name)
-                    idx = y * m + x
+                    idx = x * n + y
                     ni_dict["arr_idx"] = Coord(x=x, y=y)
                     ni_dict["addr_range"] = ep_desc.addr_range.model_copy().set_idx(idx)
 
@@ -562,7 +563,7 @@ class Network(BaseModel):  # pylint: disable=too-many-public-methods
         for ni in ni_sbr_nodes:
             dest = ni.id
             if self.routing.id_offset is not None:
-                dest += self.routing.id_offset
+                dest -= self.routing.id_offset
             addr_range = ni.addr_range
             addr_rule = RouteMapRule(dest=dest, addr_range=addr_range, desc=ni.name)
             addr_table.append(addr_rule)
