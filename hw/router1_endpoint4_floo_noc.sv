@@ -269,7 +269,8 @@ floo_narrow_wide_router #(
   .OutputFifoDepth (2),
   .RouteAlgo (XYRouting),
   .XYRouteOpt      (1'b0),
-  .id_t(id_t)
+  .id_t(id_t),
+  .Mesh(1'b0)
 ) router (
   .clk_i,
   .rst_ni,

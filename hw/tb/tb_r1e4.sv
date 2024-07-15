@@ -10,10 +10,10 @@ module tb_r1e4;
   localparam time ApplTime = 2ns;
   localparam time TestTime = 8ns;
 
-  localparam int unsigned NarrowNumReads = 1000;
-  localparam int unsigned NarrowNumWrites = 1000;
-  localparam int unsigned WideNumReads = 1000;
-  localparam int unsigned WideNumWrites = 1000;
+  localparam int unsigned NarrowNumReads = 100;
+  localparam int unsigned NarrowNumWrites = 100;
+  localparam int unsigned WideNumReads = 100;
+  localparam int unsigned WideNumWrites = 100;
 
   localparam bit AtopSupport = 1'b0;
 

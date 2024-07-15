@@ -16,10 +16,10 @@ module tb_floo_mcast_mesh;
   localparam time ApplTime = 2ns;
   localparam time TestTime = 8ns;
 
-  localparam int unsigned NarrowNumReads = 5;
-  localparam int unsigned NarrowNumWrites = 5;
-  localparam int unsigned WideNumReads = 5;
-  localparam int unsigned WideNumWrites = 5;
+  localparam int unsigned NarrowNumReads = 100;
+  localparam int unsigned NarrowNumWrites = 100;
+  localparam int unsigned WideNumReads = 100;
+  localparam int unsigned WideNumWrites = 100;
 
   localparam int unsigned NumX = 4;
   localparam int unsigned NumY = 4;

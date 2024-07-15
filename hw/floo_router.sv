@@ -30,7 +30,8 @@ module floo_router
   parameter int unsigned NumInput         = NumRoutes,
   parameter int unsigned NumOutput        = NumRoutes,
   parameter bit          XYRouteOpt       = 1'b1,
-  parameter bit          NoLoopback       = 1'b1
+  parameter bit          NoLoopback       = 1'b1,
+  parameter bit          Mesh             = 1'b1
 ) (
   input  logic                                       clk_i,
   input  logic                                       rst_ni,
@@ -94,7 +95,8 @@ module floo_router
         .IdWidth      ( IdWidth      ),
         .id_t         ( id_t         ),
         .NumAddrRules ( NumAddrRules ),
-        .addr_rule_t  ( addr_rule_t  )
+        .addr_rule_t  ( addr_rule_t  ),
+        .Mesh         ( Mesh         )
       ) i_route_select (
         .clk_i,
         .rst_ni,
